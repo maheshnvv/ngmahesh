@@ -50,7 +50,7 @@ jobs:
 
           # Check ng-osm-map
           if echo "$CHANGED_FILES" | grep -q "^projects/ng-osm-map/"; then
-            LIBRARIES=$(echo "$LIBRARIES" | jq '. + ["ng-osm-map"]')
+            LIBRARIES=$(echo "$LIBRARIES" | jq -c '. + ["ng-osm-map"]')
           fi
 
           # Check if docs changed

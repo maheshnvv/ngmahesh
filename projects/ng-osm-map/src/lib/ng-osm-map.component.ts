@@ -2,6 +2,7 @@ import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, OnChanges, S
 import { NgOsmMapDirective } from './directives/ng-osm-map.directive';
 import { LocationObject, PinObject, HighlightArea, MapOptions, MapClickEvent, SearchResult, PinDragEvent, AutocompleteSuggestion, TileLayerType, SelectedLocation, PinDeleteEvent } from './models/map-interfaces';
 
+// Angular OpenStreetMap component with search input directive support
 @Component({
   selector: 'ng-osm-map',
   standalone: true,
