@@ -16,13 +16,14 @@ import {
   EmbeddedViewRef
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { forkJoin, of } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { forkJoin, of, Subscription } from 'rxjs';
+import { tap, filter } from 'rxjs/operators';
 import * as L from 'leaflet';
 import { LocationObject, PinObject, HighlightArea, MapOptions, MapClickEvent, SearchResult, PinDragEvent, AutocompleteSuggestion, TileLayerConfig, TileLayerType, SelectedLocation, PinDeleteEvent, PinPopupContext } from '../models/map-interfaces';
 import { GeocodingService } from '../services/geocoding.service';
 import { AutocompleteService } from '../services/autocomplete.service';
 import { TileLayerService } from '../services/tile-layer.service';
+import { NgOsmSearchConnectionService } from '../services/ng-osm-search-connection.service';
 
 @Directive({
   selector: '[ngOsmMap]',
@@ -35,11 +36,13 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
   private readonly tileLayerService = inject(TileLayerService);
   private readonly ngZone = inject(NgZone);
   private readonly viewContainer = inject(ViewContainerRef);
+  private readonly connectionService = inject(NgOsmSearchConnectionService);
 
   @Input() pins: PinObject[] = [];
   @Input() zoomInto?: LocationObject;
   @Input() highlightAreas: HighlightArea[] = [];
   @Input() mapOptions: MapOptions = {};
+  @Input() mapId?: string; // Unique identifier for this map instance
 
   @Output() mapClick = new EventEmitter<MapClickEvent>();
   @Output() locationSelected = new EventEmitter<MapClickEvent>();
@@ -63,6 +66,9 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
   private selectionCounter = 0;
   private embeddedViews: Map<number, EmbeddedViewRef<PinPopupContext>> = new Map();
   private coordinatesCache: Map<string, { lat: number; lng: number }> = new Map();
+  private searchConnectionSubscription?: Subscription;
+  private suggestionConnectionSubscription?: Subscription;
+  private internalMapId: string;
   private defaultOptions: MapOptions = {
     zoom: 13,
     minZoom: 1,
@@ -76,11 +82,17 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   };
 
-  constructor(private elementRef: ElementRef<HTMLElement>) {}
+  constructor(private elementRef: ElementRef<HTMLElement>) {
+    this.internalMapId = this.mapId || `ng-osm-map-${Math.random().toString(36).substr(2, 9)}`;
+  }
 
   ngOnInit(): void {
     if (isPlatformBrowser(this.platformId)) {
+      // Update internal map ID if mapId input changed
+      this.internalMapId = this.mapId || this.internalMapId;
+      
       this.initializeMap();
+      this.setupSearchConnections();
     }
   }
 
@@ -91,6 +103,15 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
     
     // Clear coordinates cache
     this.coordinatesCache.clear();
+    
+    // Clean up search connections
+    if (this.searchConnectionSubscription) {
+      this.searchConnectionSubscription.unsubscribe();
+    }
+    if (this.suggestionConnectionSubscription) {
+      this.suggestionConnectionSubscription.unsubscribe();
+    }
+    this.connectionService.disconnectMap(this.internalMapId);
     
     if (this.map) {
       this.map.remove();
@@ -1509,7 +1530,14 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
       const displayValue = primarySelection.addressInfo?.display_name || 
         `${primarySelection.coordinates.latitude.toFixed(6)}, ${primarySelection.coordinates.longitude.toFixed(6)}`;
       
-      // Find external search input and update it
+      // Update connected search inputs via connection service
+      this.connectionService.emitLocationSelectedEvent(
+        displayValue,
+        primarySelection.coordinates,
+        this.internalMapId
+      );
+      
+      // Legacy: Find external search input and update it (for backward compatibility)
       const externalInput = document.querySelector('#external-search-input') as HTMLInputElement;
       if (externalInput) {
         externalInput.value = displayValue;
@@ -1634,5 +1662,25 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
    */
   public clearLocationCache(): void {
     this.coordinatesCache.clear();
+  }
+
+  /**
+   * Setup search input connections
+   */
+  private setupSearchConnections(): void {
+    // Listen for search events from connected search inputs
+    this.searchConnectionSubscription = this.connectionService.searchEvents$.pipe(
+      filter(event => this.connectionService.isConnected(event.searchInputId, this.internalMapId))
+    ).subscribe(event => {
+      this.handleSearch(event.query);
+    });
+
+    // Listen for suggestion selection events from connected search inputs
+    this.suggestionConnectionSubscription = this.connectionService.suggestionSelectedEvents$.pipe(
+      filter(event => this.connectionService.isConnected(event.searchInputId, this.internalMapId))
+    ).subscribe(event => {
+      // Handle suggestion selection similar to search
+      this.handleSearch(event.suggestion.displayText);
+    });
   }
 }

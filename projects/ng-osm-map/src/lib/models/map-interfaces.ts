@@ -304,6 +304,26 @@ export interface SearchInputConfig {
   dropdownContainer?: string | HTMLElement;
   /** Auto-focus input on map load */
   autoFocus?: boolean;
+  /** Template reference for custom autocomplete search input */
+  customSearchTemplate?: TemplateRef<AutocompleteSearchContext>;
+}
+
+/**
+ * Context provided to custom autocomplete search templates
+ */
+export interface AutocompleteSearchContext {
+  /** Array of autocomplete suggestions */
+  $implicit: AutocompleteSuggestion[];
+  /** Current search query */
+  query: string;
+  /** Function to trigger search */
+  search: (query: string) => void;
+  /** Function to select a suggestion */
+  selectSuggestion: (suggestion: AutocompleteSuggestion) => void;
+  /** Function to clear suggestions */
+  clearSuggestions: () => void;
+  /** Loading state */
+  loading: boolean;
 }
 
 /**

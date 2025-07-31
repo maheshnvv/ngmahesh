@@ -88,11 +88,95 @@
       </p>
     </section>
 
+    <!-- Search Input Directive Demo -->
+    <section class="search-input-demo">
+      <h2>🔍 Search Input Directive Demo</h2>
+      <p>New directive-based approach for connecting search inputs to maps:</p>
+      
+      <div class="demo-subsection">
+        <h3>Basic Search Input</h3>
+        <p>A basic search input connected to the main map below:</p>
+        
+        <div class="search-container">
+          <input 
+            type="text" 
+            ngOsmSearchInput
+            [connectedMapId]="mapId"
+            [enableAutocomplete]="true"
+            [showSuggestionsDropdown]="true"
+            placeholder="Search for a location..."
+            class="search-input"
+            (search)="onSearchInputSearch($event)"
+            (suggestionSelected)="onSearchInputSuggestionSelected($event)"
+            (autocompleteResults)="onSearchInputAutocompleteResults($event)">
+        </div>
+      </div>
+
+      <div class="demo-subsection">
+        <h3>Custom Template Search Input</h3>
+        <p>A search input with custom template for autocomplete suggestions:</p>
+        
+        <div class="search-container">
+          <input 
+            type="text" 
+            ngOsmSearchInput
+            [connectedMapId]="mapId"
+            [enableAutocomplete]="true"
+            [customSearchTemplate]="customAutocompleteTemplate"
+            placeholder="Search with custom template..."
+            class="search-input"
+            (search)="onSearchInputSearch($event)"
+            (suggestionSelected)="onSearchInputSuggestionSelected($event)">
+        </div>
+      </div>
+
+      <div class="demo-subsection">
+        <h3>Multiple Search Inputs</h3>
+        <p>Multiple search inputs connected to the same map:</p>
+        
+        <div class="multi-search-container">
+          <input 
+            type="text" 
+            ngOsmSearchInput
+            [connectedMapId]="mapId"
+            [enableAutocomplete]="true"
+            [showSuggestionsDropdown]="true"
+            placeholder="Search input 1..."
+            class="search-input small"
+            (search)="onSearchInputSearch($event)">
+            
+          <input 
+            type="text" 
+            ngOsmSearchInput
+            [connectedMapId]="mapId"
+            [enableAutocomplete]="true"
+            [showSuggestionsDropdown]="true"
+            placeholder="Search input 2..."
+            class="search-input small"
+            (search)="onSearchInputSearch($event)">
+        </div>
+      </div>
+
+      <div class="demo-subsection">
+        <h3>Search Event Log</h3>
+        <div class="event-log">
+          <div *ngFor="let event of searchEventLog" class="event-item">
+            <strong>{{ event.type }}:</strong> {{ event.message }}
+            <small>{{ event.timestamp | date:'HH:mm:ss' }}</small>
+          </div>
+          <div *ngIf="searchEventLog.length === 0" class="no-events">
+            No search events yet. Try using the search inputs above!
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Interactive Map with All Features -->
     <section class="map-section">
       <h2>Interactive Map with All Features</h2>
       <ng-osm-map
         #mapComponent
+        [mapId]="mapId"
         [pins]="pins"
         [zoomInto]="centerLocation"
         [highlightAreas]="highlightAreas"
@@ -334,6 +418,25 @@
           🗑️ Delete This Pin
         </button>
         <small class="pin-info">Template-based popup with custom delete action</small>
+      </div>
+    </div>
+  </div>
+</ng-template>
+
+<!-- Custom Autocomplete Template -->
+<ng-template #customAutocompleteTemplate let-suggestions let-query="query" let-selectSuggestion="selectSuggestion" let-loading="loading">
+  <div class="custom-autocomplete-dropdown" *ngIf="suggestions.length > 0 || loading">
+    <div *ngIf="loading" class="loading-item">
+      <div class="spinner"></div>
+      <span>Searching...</span>
+    </div>
+    <div *ngFor="let suggestion of suggestions" 
+         class="custom-suggestion-item"
+         (click)="selectSuggestion(suggestion)">
+      <div class="suggestion-main">{{ suggestion.displayText }}</div>
+      <div class="suggestion-details">{{ suggestion.fullDisplayName }}</div>
+      <div class="suggestion-coords">
+        {{ suggestion.coordinates.latitude.toFixed(4) }}, {{ suggestion.coordinates.longitude.toFixed(4) }}
       </div>
     </div>
   </div>

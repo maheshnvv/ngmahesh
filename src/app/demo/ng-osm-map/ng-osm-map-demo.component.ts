@@ -1,12 +1,12 @@
 import { Component, ViewChild, TemplateRef, ViewContainerRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { NgOsmMapComponent, PinObject, LocationObject, HighlightArea, MapClickEvent, SearchResult, PinDragEvent, AutocompleteSuggestion, TileLayerType, SelectedLocation, PinDeleteEvent, PinPopupContext } from '../../../../projects/ng-osm-map/src/public-api';
+import { NgOsmMapComponent, NgOsmSearchInputDirective, PinObject, LocationObject, HighlightArea, MapClickEvent, SearchResult, PinDragEvent, AutocompleteSuggestion, AutocompleteSearchContext, TileLayerType, SelectedLocation, PinDeleteEvent, PinPopupContext } from '../../../../projects/ng-osm-map/src/public-api';
 
 @Component({
   selector: 'app-ng-osm-map-demo',
   standalone: true,
-  imports: [NgOsmMapComponent, CommonModule, RouterModule],
+  imports: [NgOsmMapComponent, NgOsmSearchInputDirective, CommonModule, RouterModule],
   templateUrl: './ng-osm-map-demo.component.html',
   styleUrl: './ng-osm-map-demo.component.scss'
 })
@@ -14,9 +14,16 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
   @ViewChild(NgOsmMapComponent) mapComponent!: NgOsmMapComponent;
   @ViewChild('customPopupTemplate', { static: true }) customPopupTemplate!: TemplateRef<PinPopupContext>;
   @ViewChild('deleteablePopupTemplate', { static: true }) deleteablePopupTemplate!: TemplateRef<PinPopupContext>;
+  @ViewChild('customAutocompleteTemplate', { static: true }) customAutocompleteTemplate!: TemplateRef<AutocompleteSearchContext>;
 
   title = 'ngmahesh';
   currentTileLayer: TileLayerType = 'openstreetmap';
+  
+  // Map ID for connecting search inputs
+  mapId = 'main-demo-map';
+  
+  // Event log for search input demo
+  searchEventLog: Array<{type: string, message: string, timestamp: Date}> = [];
 
   // Available tile layer options
   tileLayerOptions: { type: TileLayerType; name: string; description: string }[] = [
@@ -536,5 +543,31 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
     // This should trigger efficient updating (only add one marker)
     this.pins = [...this.pins, newPin];
     console.log(`Added ${randomCity.name} pin - should only create 1 new marker`);
+  }
+
+  // Search Input Demo Event Handlers
+  onSearchInputSearch(query: string): void {
+    this.addToSearchEventLog('Search', `Searching for: "${query}"`);
+  }
+
+  onSearchInputSuggestionSelected(suggestion: AutocompleteSuggestion): void {
+    this.addToSearchEventLog('Suggestion Selected', `Selected: ${suggestion.displayText}`);
+  }
+
+  onSearchInputAutocompleteResults(suggestions: AutocompleteSuggestion[]): void {
+    this.addToSearchEventLog('Autocomplete', `Got ${suggestions.length} suggestions`);
+  }
+
+  private addToSearchEventLog(type: string, message: string): void {
+    this.searchEventLog.unshift({
+      type,
+      message,
+      timestamp: new Date()
+    });
+    
+    // Keep only last 10 events
+    if (this.searchEventLog.length > 10) {
+      this.searchEventLog = this.searchEventLog.slice(0, 10);
+    }
   }
 }

@@ -14,6 +14,7 @@ import { LocationObject, PinObject, HighlightArea, MapOptions, MapClickEvent, Se
       [zoomInto]="zoomInto"
       [highlightAreas]="highlightAreas"
       [mapOptions]="mapOptions"
+      [mapId]="mapId"
       (mapClick)="onMapClick($event)"
       (locationSelected)="onLocationSelected($event)"
       (searchResult)="onSearchResult($event)"
@@ -47,6 +48,7 @@ export class NgOsmMapComponent implements OnInit, OnDestroy, OnChanges {
   @Input() mapOptions: MapOptions = {};
   @Input() height: number | string = 400;
   @Input() width: number | string = '100%';
+  @Input() mapId?: string;
 
   @Output() mapClick = new EventEmitter<MapClickEvent>();
   @Output() locationSelected = new EventEmitter<MapClickEvent>();
