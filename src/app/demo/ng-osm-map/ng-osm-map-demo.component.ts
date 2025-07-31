@@ -18,10 +18,10 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
 
   title = 'ngmahesh';
   currentTileLayer: TileLayerType = 'openstreetmap';
-  
+
   // Map ID for connecting search inputs
   mapId = 'main-demo-map';
-  
+
   // Event log for search input demo
   searchEventLog: Array<{type: string, message: string, timestamp: Date}> = [];
 
@@ -232,7 +232,7 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
   onPinDragged(event: PinDragEvent) {
     console.log('Pin dragged:', event);
     this.dragHistory = [event, ...this.dragHistory.slice(0, 4)]; // Keep last 5 drags
-    
+
     // Update the pin coordinates without triggering a full re-render
     if (event.pinIndex >= 0 && event.pinIndex < this.pins.length) {
       // Update the pin's location directly (this won't trigger change detection)
@@ -240,7 +240,7 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
         latitude: event.newCoordinates.latitude,
         longitude: event.newCoordinates.longitude
       };
-      
+
       // Legacy tracking for backwards compatibility
       // Check if this is a search result pin and update the search result info
       if (event.pinIndex === this.searchResultPinIndex && this.lastSearchResult) {
@@ -249,7 +249,7 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
           latitude: event.newCoordinates.latitude,
           longitude: event.newCoordinates.longitude
         };
-        
+
         // Update display name with new address info or coordinates
         if (event.newAddressInfo?.display_name) {
           this.lastSearchResult.displayName = event.newAddressInfo.display_name;
@@ -258,7 +258,7 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
           this.lastSearchResult.displayName = `${event.newCoordinates.latitude.toFixed(6)}, ${event.newCoordinates.longitude.toFixed(6)}`;
         }
       }
-      
+
       // Legacy: Check if this is a selected location pin and update the selected location info
       if (event.pinIndex === this.selectedLocationPinIndex && this.lastClickedLocation) {
         console.log('Updating selected location info after pin drag');
@@ -266,7 +266,7 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
           latitude: event.newCoordinates.latitude,
           longitude: event.newCoordinates.longitude
         };
-        
+
         // Update address info
         if (event.newAddressInfo) {
           this.lastClickedLocation.addressInfo = event.newAddressInfo;
@@ -426,14 +426,14 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
     const mapSelections = this.selectedLocations.filter(sel => sel.id.startsWith('map-click_'));
 
     let info = `${this.selectedLocations.length} location(s) selected:\n`;
-    
+
     if (searchSelections.length > 0) {
       info += `\n🔍 Search Selections (${searchSelections.length}):\n`;
       searchSelections.forEach((sel, i) => {
         info += `${i + 1}. ${sel.addressInfo?.display_name || `${sel.coordinates.latitude.toFixed(4)}, ${sel.coordinates.longitude.toFixed(4)}`}\n`;
       });
     }
-    
+
     if (mapSelections.length > 0) {
       info += `\n📍 Map Click Selections (${mapSelections.length}):\n`;
       mapSelections.forEach((sel, i) => {
@@ -564,7 +564,7 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
       message,
       timestamp: new Date()
     });
-    
+
     // Keep only last 10 events
     if (this.searchEventLog.length > 10) {
       this.searchEventLog = this.searchEventLog.slice(0, 10);

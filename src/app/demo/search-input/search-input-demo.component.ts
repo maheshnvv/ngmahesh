@@ -9,14 +9,14 @@ import { NgOsmMapComponent, NgOsmSearchInputDirective, PinObject, LocationObject
   template: `
     <div class="demo-container">
       <h2>Search Input Directive Demo</h2>
-      
+
       <div class="demo-section">
         <h3>Basic Search Input</h3>
         <p>A basic search input connected to the map below:</p>
-        
+
         <div class="search-container">
-          <input 
-            type="text" 
+          <input
+            type="text"
             ngOsmSearchInput
             [connectedMapId]="mapId"
             [enableAutocomplete]="true"
@@ -32,10 +32,10 @@ import { NgOsmMapComponent, NgOsmSearchInputDirective, PinObject, LocationObject
       <div class="demo-section">
         <h3>Custom Template Search Input</h3>
         <p>A search input with custom template for autocomplete suggestions:</p>
-        
+
         <div class="search-container">
-          <input 
-            type="text" 
+          <input
+            type="text"
             ngOsmSearchInput
             [connectedMapId]="mapId"
             [enableAutocomplete]="true"
@@ -50,10 +50,10 @@ import { NgOsmMapComponent, NgOsmSearchInputDirective, PinObject, LocationObject
       <div class="demo-section">
         <h3>Multiple Search Inputs</h3>
         <p>Multiple search inputs connected to the same map:</p>
-        
+
         <div class="multi-search-container">
-          <input 
-            type="text" 
+          <input
+            type="text"
             ngOsmSearchInput
             [connectedMapId]="mapId"
             [enableAutocomplete]="true"
@@ -61,9 +61,9 @@ import { NgOsmMapComponent, NgOsmSearchInputDirective, PinObject, LocationObject
             placeholder="Search input 1..."
             class="search-input"
             (search)="onSearch($event)">
-            
-          <input 
-            type="text" 
+
+          <input
+            type="text"
             ngOsmSearchInput
             [connectedMapId]="mapId"
             [enableAutocomplete]="true"
@@ -105,7 +105,7 @@ import { NgOsmMapComponent, NgOsmSearchInputDirective, PinObject, LocationObject
           <div class="spinner"></div>
           <span>Searching...</span>
         </div>
-        <div *ngFor="let suggestion of suggestions" 
+        <div *ngFor="let suggestion of suggestions"
              class="custom-suggestion-item"
              (click)="selectSuggestion(suggestion)">
           <div class="suggestion-main">{{ suggestion.displayText }}</div>
@@ -265,9 +265,9 @@ export class SearchInputDemoComponent {
   @ViewChild('customAutocompleteTemplate', { static: true }) customAutocompleteTemplate!: TemplateRef<AutocompleteSearchContext>;
 
   mapId = 'search-demo-map';
-  
+
   pins: PinObject[] = [];
-  
+
   mapOptions = {
     zoom: 10,
     enableClickSelect: true,
@@ -310,7 +310,7 @@ export class SearchInputDemoComponent {
       message,
       timestamp: new Date()
     });
-    
+
     // Keep only last 10 events
     if (this.eventLog.length > 10) {
       this.eventLog = this.eventLog.slice(0, 10);

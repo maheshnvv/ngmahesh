@@ -84,7 +84,7 @@ export class NgOsmSearchInputDirective implements OnInit, OnDestroy, OnChanges {
     if (changes['placeholder'] && this.inputElement) {
       this.inputElement.placeholder = this.placeholder;
     }
-    
+
     if (changes['customSearchTemplate']) {
       this.updateCustomTemplate();
     }
@@ -98,7 +98,7 @@ export class NgOsmSearchInputDirective implements OnInit, OnDestroy, OnChanges {
     // Set initial properties
     this.inputElement.placeholder = this.placeholder;
     this.inputElement.type = 'text';
-    
+
     // Auto-focus if configured
     if (this.autoFocus) {
       setTimeout(() => this.inputElement.focus(), 100);
@@ -111,13 +111,13 @@ export class NgOsmSearchInputDirective implements OnInit, OnDestroy, OnChanges {
   private setupEventListeners(): void {
     // Handle input events
     this.inputElement.addEventListener('input', this.handleInput.bind(this));
-    
+
     // Handle keyboard events
     this.inputElement.addEventListener('keydown', this.handleKeydown.bind(this));
-    
+
     // Handle blur events
     this.inputElement.addEventListener('blur', this.handleBlur.bind(this));
-    
+
     // Handle focus events
     this.inputElement.addEventListener('focus', this.handleFocus.bind(this));
   }
@@ -199,7 +199,7 @@ export class NgOsmSearchInputDirective implements OnInit, OnDestroy, OnChanges {
       next: (suggestions) => {
         this.isLoading = false;
         this.currentSuggestions = suggestions;
-        
+
         if (this.customSearchTemplate) {
           this.updateCustomTemplate();
         } else if (this.showSuggestionsDropdown) {
@@ -409,11 +409,11 @@ export class NgOsmSearchInputDirective implements OnInit, OnDestroy, OnChanges {
   private hideSuggestions(): void {
     this.currentSuggestions = [];
     this.isLoading = false;
-    
+
     if (this.autocompleteDropdown) {
       this.autocompleteDropdown.style.display = 'none';
     }
-    
+
     if (this.customTemplateView) {
       this.updateCustomTemplate(); // Update to show empty state
     }
@@ -422,11 +422,11 @@ export class NgOsmSearchInputDirective implements OnInit, OnDestroy, OnChanges {
   private selectSuggestion(suggestion: AutocompleteSuggestion): void {
     this.inputElement.value = suggestion.displayText;
     this.hideSuggestions();
-    
+
     this.ngZone.run(() => {
       this.suggestionSelected.emit(suggestion);
       this.search.emit(suggestion.displayText);
-      
+
       // Emit to connection service for connected map
       if (this.connectedMapId) {
         this.connectionService.emitSuggestionSelectedEvent(suggestion, this.searchInputId);
@@ -438,7 +438,7 @@ export class NgOsmSearchInputDirective implements OnInit, OnDestroy, OnChanges {
     this.hideSuggestions();
     this.ngZone.run(() => {
       this.search.emit(query);
-      
+
       // Emit to connection service for connected map
       if (this.connectedMapId) {
         this.connectionService.emitSearchEvent(query, this.searchInputId);

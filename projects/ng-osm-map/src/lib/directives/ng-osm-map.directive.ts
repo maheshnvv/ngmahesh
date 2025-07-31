@@ -90,7 +90,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
     if (isPlatformBrowser(this.platformId)) {
       // Update internal map ID if mapId input changed
       this.internalMapId = this.mapId || this.internalMapId;
-      
+
       this.initializeMap();
       this.setupSearchConnections();
     }
@@ -100,10 +100,10 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
     // Clean up embedded views
     this.embeddedViews.forEach(view => view.destroy());
     this.embeddedViews.clear();
-    
+
     // Clear coordinates cache
     this.coordinatesCache.clear();
-    
+
     // Clean up search connections
     if (this.searchConnectionSubscription) {
       this.searchConnectionSubscription.unsubscribe();
@@ -112,7 +112,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
       this.suggestionConnectionSubscription.unsubscribe();
     }
     this.connectionService.disconnectMap(this.internalMapId);
-    
+
     if (this.map) {
       this.map.remove();
     }
@@ -285,7 +285,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
 
     currentPins.forEach((pin, index) => {
       const previousPin = previousPins[index];
-      
+
       // Check if this is a new pin or if the location changed
       if (!previousPin || this.hasLocationChanged(previousPin.location, pin.location)) {
         locationObservables.push(this.resolveLocationWithCache(pin.location));
@@ -327,7 +327,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
 
   private resolveLocationWithCache(location: LocationObject): any {
     const cacheKey = this.getLocationCacheKey(location);
-    
+
     // Check cache first
     if (this.coordinatesCache.has(cacheKey)) {
       return of(this.coordinatesCache.get(cacheKey)!);
@@ -347,7 +347,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
     if (location.latitude !== undefined && location.longitude !== undefined) {
       return `coord_${location.latitude}_${location.longitude}`;
     }
-    
+
     const parts = [
       location.address || '',
       location.city || '',
@@ -355,7 +355,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
       location.country || '',
       location.zipCode || ''
     ].filter(part => part.length > 0);
-    
+
     return `addr_${parts.join('_')}`;
   }
 
@@ -364,7 +364,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
     if (prev.latitude !== current.latitude || prev.longitude !== current.longitude) {
       return true;
     }
-    
+
     // Compare address components
     return prev.address !== current.address ||
            prev.city !== current.city ||
@@ -469,7 +469,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
 
           this.ngZone.run(() => {
             this.pinDragged.emit(dragEvent);
-            
+
             // Update selection data if this pin is associated with a selection
             if (pin.data?.selectionId) {
               const associatedSelection = this.selectedLocations.find(sel => sel.id === pin.data.selectionId);
@@ -478,14 +478,14 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
                   latitude: newLatLng.lat,
                   longitude: newLatLng.lng
                 };
-                
+
                 if (dragEvent.newAddressInfo) {
                   associatedSelection.addressInfo = dragEvent.newAddressInfo;
                 }
-                
+
                 // Update external search input if this is the primary selection
                 this.updateExternalSearchInputFromSelection();
-                
+
                 // Emit selection change
                 this.selectionChanged.emit([...this.selectedLocations]);
               }
@@ -543,7 +543,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
 
       // Create embedded view from template
       const embeddedView = this.viewContainer.createEmbeddedView(pin.popupTemplate!, context);
-      
+
       // Store the view for cleanup
       this.embeddedViews.set(pinIndex, embeddedView);
 
@@ -553,7 +553,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
       // Create a container div to hold the template content
       const popupContainer = document.createElement('div');
       popupContainer.className = 'template-popup-container';
-      
+
       // Append all nodes from the template to the container
       embeddedView.rootNodes.forEach(node => {
         if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.TEXT_NODE) {
@@ -1409,7 +1409,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
           this.deletePinByIndex(sel.pinIndex, 'programmatic');
         }
       });
-      
+
       // If multi-select is off, also remove map-click selections
       if (!selectionOptions.multiSelect) {
         const mapClickSelections = this.selectedLocations.filter(sel => sel.id.startsWith('map-click_'));
@@ -1466,7 +1466,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
     // Create pin for selection if enabled
     if (selectionOptions.createPinsForSelections) {
       let pinConfig: PinObject;
-      
+
       if (source === 'search-result' && customPinConfig) {
         // Use custom search pin configuration
         pinConfig = {
@@ -1516,7 +1516,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
     if (searchSelection) {
       return searchSelection;
     }
-    
+
     // Return first selection if no search selection
     return this.selectedLocations.length > 0 ? this.selectedLocations[0] : undefined;
   }
@@ -1527,16 +1527,16 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
   private updateExternalSearchInputFromSelection(): void {
     const primarySelection = this.getPrimarySelection();
     if (primarySelection) {
-      const displayValue = primarySelection.addressInfo?.display_name || 
+      const displayValue = primarySelection.addressInfo?.display_name ||
         `${primarySelection.coordinates.latitude.toFixed(6)}, ${primarySelection.coordinates.longitude.toFixed(6)}`;
-      
+
       // Update connected search inputs via connection service
       this.connectionService.emitLocationSelectedEvent(
         displayValue,
         primarySelection.coordinates,
         this.internalMapId
       );
-      
+
       // Legacy: Find external search input and update it (for backward compatibility)
       const externalInput = document.querySelector('#external-search-input') as HTMLInputElement;
       if (externalInput) {

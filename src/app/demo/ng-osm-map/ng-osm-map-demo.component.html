@@ -92,14 +92,14 @@
     <section class="search-input-demo">
       <h2>🔍 Search Input Directive Demo</h2>
       <p>New directive-based approach for connecting search inputs to maps:</p>
-      
+
       <div class="demo-subsection">
         <h3>Basic Search Input</h3>
         <p>A basic search input connected to the main map below:</p>
-        
+
         <div class="search-container">
-          <input 
-            type="text" 
+          <input
+            type="text"
             ngOsmSearchInput
             [connectedMapId]="mapId"
             [enableAutocomplete]="true"
@@ -115,10 +115,10 @@
       <div class="demo-subsection">
         <h3>Custom Template Search Input</h3>
         <p>A search input with custom template for autocomplete suggestions:</p>
-        
+
         <div class="search-container">
-          <input 
-            type="text" 
+          <input
+            type="text"
             ngOsmSearchInput
             [connectedMapId]="mapId"
             [enableAutocomplete]="true"
@@ -133,10 +133,10 @@
       <div class="demo-subsection">
         <h3>Multiple Search Inputs</h3>
         <p>Multiple search inputs connected to the same map:</p>
-        
+
         <div class="multi-search-container">
-          <input 
-            type="text" 
+          <input
+            type="text"
             ngOsmSearchInput
             [connectedMapId]="mapId"
             [enableAutocomplete]="true"
@@ -144,9 +144,9 @@
             placeholder="Search input 1..."
             class="search-input small"
             (search)="onSearchInputSearch($event)">
-            
-          <input 
-            type="text" 
+
+          <input
+            type="text"
             ngOsmSearchInput
             [connectedMapId]="mapId"
             [enableAutocomplete]="true"
@@ -339,8 +339,8 @@
         <li>💡 Use Angular directives, pipes, and components within popups</li>
       </ul>
       <p class="template-demo-note">
-        <strong>🌟 Try it out:</strong> Look for the <span class="highlight">London</span> and 
-        <span class="highlight">Berlin</span> pins on the map - they use custom templates with 
+        <strong>🌟 Try it out:</strong> Look for the <span class="highlight">London</span> and
+        <span class="highlight">Berlin</span> pins on the map - they use custom templates with
         rich content and interactive features!
       </p>
     </div>
@@ -354,7 +354,7 @@
       <h3>🌟 {{ pin.title }}</h3>
       <span class="coordinates">{{ location.latitude?.toFixed(4) }}, {{ location.longitude?.toFixed(4) }}</span>
     </div>
-    
+
     <div class="popup-content">
       <div class="city-info" *ngIf="pin.data?.cityInfo">
         <div class="info-item">
@@ -370,7 +370,7 @@
           </ul>
         </div>
       </div>
-      
+
       <div class="popup-actions">
         <small class="pin-info">Pin #{{ pinIndex }} • {{ pin.draggable ? 'Draggable' : 'Fixed' }}</small>
       </div>
@@ -384,13 +384,13 @@
       <h3>🗑️ {{ pin.title }}</h3>
       <button class="close-btn" onclick="this.closest('.leaflet-popup').querySelector('.leaflet-popup-close-button').click()">&times;</button>
     </div>
-    
+
     <div class="popup-content">
       <div class="location-info">
         <p><strong>📍 Location:</strong> {{ location.latitude?.toFixed(6) }}, {{ location.longitude?.toFixed(6) }}</p>
         <p><strong>🎨 Color:</strong> <span class="color-preview" [style.background-color]="pin.color">{{ pin.color }}</span></p>
       </div>
-      
+
       <div class="city-info" *ngIf="pin.data?.cityInfo">
         <div class="info-grid">
           <div class="info-card">
@@ -402,7 +402,7 @@
             <div class="info-value">{{ pin.data.cityInfo.established }}</div>
           </div>
         </div>
-        
+
         <div class="landmarks-section">
           <h4>Famous Landmarks:</h4>
           <div class="landmarks-tags">
@@ -412,7 +412,7 @@
           </div>
         </div>
       </div>
-      
+
       <div class="popup-actions">
         <button class="btn-delete" (click)="deletePin()">
           🗑️ Delete This Pin
@@ -430,7 +430,7 @@
       <div class="spinner"></div>
       <span>Searching...</span>
     </div>
-    <div *ngFor="let suggestion of suggestions" 
+    <div *ngFor="let suggestion of suggestions"
          class="custom-suggestion-item"
          (click)="selectSuggestion(suggestion)">
       <div class="suggestion-main">{{ suggestion.displayText }}</div>

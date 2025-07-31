@@ -1,5 +1,13 @@
 name: CI/CD Pipeline
 
+# Add permissions for GitHub Pages deployment
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  actions: read
+  packages: write
+
 on:
   push:
     branches: [ master, develop ]
@@ -7,6 +15,32 @@ on:
     branches: [ master ]
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      force_libraries:
+        description: 'Force build/publish specific libraries (comma-separated, e.g., ng-osm-map)'
+        required: false
+        default: ''
+        type: string
+      force_docs:
+        description: 'Force build/deploy documentation'
+        required: false
+        default: false
+        type: boolean
+      version_bump:
+        description: 'Version bump type for forced libraries'
+        required: false
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      skip_tests:
+        description: 'Skip tests during manual run'
+        required: false
+        default: false
+        type: boolean
 
 env:
   NODE_VERSION: '18.x'
@@ -28,6 +62,36 @@ jobs:
       - name: Detect changes
         id: changes
         run: |
+          # Handle manual workflow dispatch
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual workflow dispatch detected"
+
+            # Parse force_libraries input
+            FORCE_LIBS="${{ github.event.inputs.force_libraries }}"
+            if [ -n "$FORCE_LIBS" ]; then
+              # Convert comma-separated string to JSON array
+              LIBRARIES=$(echo "$FORCE_LIBS" | tr ',' '\n' | jq -R -s -c 'split("\n") | map(select(length > 0)) | map(gsub("^\\s+|\\s+$"; ""))')
+            else
+              LIBRARIES="[]"
+            fi
+
+            # Force docs if requested
+            DOCS_CHANGED="${{ github.event.inputs.force_docs }}"
+
+            # Always allow deploy for manual triggers on master
+            SHOULD_DEPLOY="true"
+
+            echo "libraries=$LIBRARIES" >> $GITHUB_OUTPUT
+            echo "docs=$DOCS_CHANGED" >> $GITHUB_OUTPUT
+            echo "should-deploy=$SHOULD_DEPLOY" >> $GITHUB_OUTPUT
+
+            echo "Manual trigger - Libraries: $LIBRARIES"
+            echo "Manual trigger - Docs: $DOCS_CHANGED"
+            echo "Manual trigger - Deploy: $SHOULD_DEPLOY"
+
+            exit 0
+          fi
+
           # Get changed files
           if [ "${{ github.event_name }}" = "push" ]; then
             if [ "${{ github.ref }}" = "refs/heads/master" ]; then
@@ -104,6 +168,7 @@ jobs:
         run: npm run build ${{ matrix.library }}
 
       - name: Test library
+        if: github.event.inputs.skip_tests != 'true'
         run: |
           # Add tests when available
           echo "Testing ${{ matrix.library }}"
@@ -121,6 +186,11 @@ jobs:
     needs: [detect-changes, build-and-test]
     if: needs.detect-changes.outputs.should-deploy == 'true' && needs.detect-changes.outputs.libraries != '[]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      actions: write
     strategy:
       matrix:
         library: ${{ fromJson(needs.detect-changes.outputs.libraries) }}
@@ -131,6 +201,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -156,23 +231,29 @@ jobs:
       - name: Determine version bump
         id: version
         run: |
-          # Determine version bump type based on commit messages or branch
-          BUMP_TYPE="patch"
+          # Use manual input if available
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version_bump }}" ]; then
+            BUMP_TYPE="${{ github.event.inputs.version_bump }}"
+            echo "Using manual version bump: $BUMP_TYPE"
+          else
+            # Determine version bump type based on commit messages or branch
+            BUMP_TYPE="patch"
 
-          # Check commit messages for version hints
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
-          if [[ "$COMMIT_MSG" == *"BREAKING CHANGE"* ]] || [[ "$COMMIT_MSG" == *"major:"* ]]; then
-            BUMP_TYPE="major"
-          elif [[ "$COMMIT_MSG" == *"feat:"* ]] || [[ "$COMMIT_MSG" == *"feature:"* ]]; then
-            BUMP_TYPE="minor"
-          fi
-
-          # Override for release branches
-          if [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
-            if [[ "${{ github.ref }}" == *"major"* ]]; then
+            # Check commit messages for version hints
+            COMMIT_MSG="${{ github.event.head_commit.message }}"
+            if [[ "$COMMIT_MSG" == *"BREAKING CHANGE"* ]] || [[ "$COMMIT_MSG" == *"major:"* ]]; then
               BUMP_TYPE="major"
-            elif [[ "${{ github.ref }}" == *"minor"* ]]; then
+            elif [[ "$COMMIT_MSG" == *"feat:"* ]] || [[ "$COMMIT_MSG" == *"feature:"* ]]; then
               BUMP_TYPE="minor"
+            fi
+
+            # Override for release branches
+            if [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
+              if [[ "${{ github.ref }}" == *"major"* ]]; then
+                BUMP_TYPE="major"
+              elif [[ "${{ github.ref }}" == *"minor"* ]]; then
+                BUMP_TYPE="minor"
+              fi
             fi
           fi
 
@@ -205,13 +286,14 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Create Git tag
+      - name: Create Git tag and push
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-
           TAG_NAME="${{ matrix.library }}-v${{ steps.bump.outputs.new-version }}"
+          echo "Creating tag: $TAG_NAME"
           git tag -a "$TAG_NAME" -m "Release ${{ matrix.library }} v${{ steps.bump.outputs.new-version }}"
+
+          # Configure git to use the token for authentication
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git push origin "$TAG_NAME"
 
       - name: Create GitHub Release
@@ -246,6 +328,10 @@ jobs:
     needs: [detect-changes]
     if: needs.detect-changes.outputs.docs-changed == 'true' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
 
     steps:
       - name: Checkout
@@ -316,10 +402,15 @@ jobs:
           EOF
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./gh-pages
+          enable_jekyll: false
+          allow_empty_commit: false
+          force_orphan: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
 
   # Notification job
   notify:
