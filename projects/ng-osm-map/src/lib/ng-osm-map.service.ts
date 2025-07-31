@@ -59,7 +59,7 @@ export class NgOsmMapService {
   }
 
   /**
-   * Validate highlight area
+   *  Validate highlight area
    */
   validateHighlightArea(area: HighlightArea): boolean {
     return area.boundary && area.boundary.length >= 3;
