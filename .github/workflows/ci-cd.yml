@@ -1,0 +1,328 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [published]
+
+env:
+  NODE_VERSION: '18.x'
+
+jobs:
+  # Detect changes and build matrix
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      libraries: ${{ steps.changes.outputs.libraries }}
+      docs-changed: ${{ steps.changes.outputs.docs }}
+      should-deploy: ${{ steps.changes.outputs.should-deploy }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        run: |
+          # Get changed files
+          if [ "${{ github.event_name }}" = "push" ]; then
+            if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              # On main branch, compare with previous commit
+              CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+            else
+              # On other branches, compare with main
+              CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+            fi
+          else
+            # For PRs, compare with target branch
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }})
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Detect which libraries changed
+          LIBRARIES="[]"
+          
+          # Check ng-osm-map
+          if echo "$CHANGED_FILES" | grep -q "^projects/ng-osm-map/"; then
+            LIBRARIES=$(echo "$LIBRARIES" | jq '. + ["ng-osm-map"]')
+          fi
+
+          # Check if docs changed
+          DOCS_CHANGED="false"
+          if echo "$CHANGED_FILES" | grep -q -E "^(src/|docs/|README\.md|\.github/)"; then
+            DOCS_CHANGED="true"
+          fi
+
+          # Should deploy (only on main or release branches)
+          SHOULD_DEPLOY="false"
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
+            SHOULD_DEPLOY="true"
+          fi
+
+          echo "libraries=$LIBRARIES" >> $GITHUB_OUTPUT
+          echo "docs=$DOCS_CHANGED" >> $GITHUB_OUTPUT
+          echo "should-deploy=$SHOULD_DEPLOY" >> $GITHUB_OUTPUT
+
+          echo "Detected libraries: $LIBRARIES"
+          echo "Docs changed: $DOCS_CHANGED"
+          echo "Should deploy: $SHOULD_DEPLOY"
+
+  # Build and test libraries
+  build-and-test:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.libraries != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        library: ${{ fromJson(needs.detect-changes.outputs.libraries) }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build library
+        run: npm run build ${{ matrix.library }}
+
+      - name: Test library
+        run: |
+          # Add tests when available
+          echo "Testing ${{ matrix.library }}"
+          # npm run test ${{ matrix.library }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.library }}-build
+          path: dist/${{ matrix.library }}
+          retention-days: 7
+
+  # Version bump and publish
+  publish-libraries:
+    needs: [detect-changes, build-and-test]
+    if: needs.detect-changes.outputs.should-deploy == 'true' && needs.detect-changes.outputs.libraries != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        library: ${{ fromJson(needs.detect-changes.outputs.libraries) }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.library }}-build
+          path: dist/${{ matrix.library }}
+
+      - name: Determine version bump
+        id: version
+        run: |
+          # Determine version bump type based on commit messages or branch
+          BUMP_TYPE="patch"
+          
+          # Check commit messages for version hints
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          if [[ "$COMMIT_MSG" == *"BREAKING CHANGE"* ]] || [[ "$COMMIT_MSG" == *"major:"* ]]; then
+            BUMP_TYPE="major"
+          elif [[ "$COMMIT_MSG" == *"feat:"* ]] || [[ "$COMMIT_MSG" == *"feature:"* ]]; then
+            BUMP_TYPE="minor"
+          fi
+
+          # Override for release branches
+          if [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
+            if [[ "${{ github.ref }}" == *"major"* ]]; then
+              BUMP_TYPE="major"
+            elif [[ "${{ github.ref }}" == *"minor"* ]]; then
+              BUMP_TYPE="minor"
+            fi
+          fi
+
+          echo "bump-type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          echo "Version bump type: $BUMP_TYPE"
+
+      - name: Bump version
+        id: bump
+        run: |
+          cd projects/${{ matrix.library }}
+          
+          # Get current version
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Bump version
+          NEW_VERSION=$(npm version ${{ steps.version.outputs.bump-type }} --no-git-tag-version)
+          NEW_VERSION=${NEW_VERSION#v}  # Remove 'v' prefix
+          
+          echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+
+      - name: Build library with new version
+        run: npm run build ${{ matrix.library }}
+
+      - name: Publish to NPM
+        run: |
+          cd dist/${{ matrix.library }}
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create Git tag
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          TAG_NAME="${{ matrix.library }}-v${{ steps.bump.outputs.new-version }}"
+          git tag -a "$TAG_NAME" -m "Release ${{ matrix.library }} v${{ steps.bump.outputs.new-version }}"
+          git push origin "$TAG_NAME"
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ matrix.library }}-v${{ steps.bump.outputs.new-version }}
+          release_name: ${{ matrix.library }} v${{ steps.bump.outputs.new-version }}
+          body: |
+            ## ${{ matrix.library }} v${{ steps.bump.outputs.new-version }}
+            
+            ### Changes
+            - Auto-generated release from CI/CD pipeline
+            - See commit history for detailed changes
+            
+            ### Installation
+            ```bash
+            npm install @ngmahesh/${{ matrix.library }}@${{ steps.bump.outputs.new-version }}
+            ```
+            
+            ### Documentation
+            [View Documentation](https://maheshnvv.github.io/ngmahesh/docs/ng-osm-map)
+            
+            ### Demo
+            [Try Live Demo](https://maheshnvv.github.io/ngmahesh/demo/ng-osm-map)
+          draft: false
+          prerelease: false
+
+  # Build and deploy documentation
+  deploy-docs:
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.docs-changed == 'true' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build main application (homepage)
+        run: npm run build
+
+      - name: Build library demos
+        run: |
+          # Build ng-osm-map demo if it exists
+          if [ -d "projects/ng-osm-map" ]; then
+            echo "Building ng-osm-map demo..."
+            npm run build ng-osm-map
+            # Create demo app build (this would be a separate demo app)
+            mkdir -p dist/ng-osm-map-demo
+            cp -r dist/ngmahesh/* dist/ng-osm-map-demo/ 2>/dev/null || true
+          fi
+
+      - name: Prepare GitHub Pages content
+        run: |
+          # Create the final dist structure for GitHub Pages
+          mkdir -p gh-pages
+          
+          # Copy main homepage
+          cp -r dist/ngmahesh/* gh-pages/
+          
+          # Create library-specific folders
+          mkdir -p gh-pages/ng-osm-map/demo
+          mkdir -p gh-pages/ng-osm-map/docs
+          
+          # Copy demos (if built)
+          if [ -d "dist/ng-osm-map-demo" ]; then
+            cp -r dist/ng-osm-map-demo/* gh-pages/ng-osm-map/demo/
+          fi
+          
+          # Copy documentation
+          if [ -d "docs" ]; then
+            cp -r docs/* gh-pages/
+          fi
+          
+          # Create a simple index for each library
+          cat > gh-pages/ng-osm-map/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>NgOsmMap - Redirecting...</title>
+            <meta http-equiv="refresh" content="0; url=./demo/">
+          </head>
+          <body>
+            <p>Redirecting to demo...</p>
+          </body>
+          </html>
+          EOF
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./gh-pages
+
+  # Notification job
+  notify:
+    needs: [detect-changes, build-and-test, publish-libraries, deploy-docs]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Notify on success
+        if: needs.publish-libraries.result == 'success' || needs.deploy-docs.result == 'success'
+        run: |
+          echo "✅ CI/CD Pipeline completed successfully!"
+          echo "Libraries published: ${{ needs.detect-changes.outputs.libraries }}"
+          echo "Docs deployed: ${{ needs.detect-changes.outputs.docs-changed }}"
+
+      - name: Notify on failure
+        if: needs.build-and-test.result == 'failure' || needs.publish-libraries.result == 'failure' || needs.deploy-docs.result == 'failure'
+        run: |
+          echo "❌ CI/CD Pipeline failed!"
+          echo "Check the logs for more details."
+          exit 1
