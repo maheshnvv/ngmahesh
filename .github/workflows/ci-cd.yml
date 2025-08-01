@@ -352,7 +352,7 @@ jobs:
         run: npm install
 
       - name: Build main application (homepage)
-        run: npm run build
+        run: npm run build -- --base-href="/ngmahesh/"
 
       - name: Build library demos
         run: |
@@ -360,7 +360,7 @@ jobs:
           if [ -d "projects/ng-osm-map" ]; then
             echo "Building ng-osm-map demo..."
             npm run build ng-osm-map
-            # Create demo app build (this would be a separate demo app)
+            # Create demo app build with correct base href
             mkdir -p dist/ng-osm-map-demo
             cp -r dist/ngmahesh/* dist/ng-osm-map-demo/ 2>/dev/null || true
           fi
@@ -370,36 +370,87 @@ jobs:
           # Create the final dist structure for GitHub Pages
           mkdir -p gh-pages
 
-          # Copy main homepage
-          cp -r dist/ngmahesh/* gh-pages/
+          # Debug: Check what was built
+          echo "Checking dist directory structure:"
+          ls -la dist/
 
-          # Create library-specific folders
+          # Angular build creates a browser folder inside the project name
+          BUILD_DIR=""
+          if [ -d "dist/ngmahesh/browser" ]; then
+            BUILD_DIR="dist/ngmahesh/browser"
+            echo "Found Angular 17+ build output in: $BUILD_DIR"
+          elif [ -d "dist/ngmahesh" ]; then
+            BUILD_DIR="dist/ngmahesh"
+            echo "Found Angular build output in: $BUILD_DIR"
+          else
+            echo "Error: No build output found!"
+            ls -la dist/
+            exit 1
+          fi
+
+          # Copy the built Angular app to gh-pages root
+          cp -r $BUILD_DIR/* gh-pages/
+
+          # Add .nojekyll file to prevent Jekyll processing
+          touch gh-pages/.nojekyll
+
+          # Create 404.html for SPA routing
+          cat > gh-pages/404.html << 'EOF'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <title>NgMahesh</title>
+            <base href="/ngmahesh/">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <link rel="icon" type="image/x-icon" href="favicon.ico">
+            <script>
+              // Redirect 404s to index.html for SPA routing
+              window.location.href = '/ngmahesh/';
+            </script>
+          </head>
+          <body>
+            <p>Redirecting...</p>
+          </body>
+          </html>
+          EOF
+
+          # Create library-specific folders and redirects
           mkdir -p gh-pages/ng-osm-map/demo
           mkdir -p gh-pages/ng-osm-map/docs
 
-          # Copy demos (if built)
-          if [ -d "dist/ng-osm-map-demo" ]; then
-            cp -r dist/ng-osm-map-demo/* gh-pages/ng-osm-map/demo/
-          fi
-
-          # Copy documentation
-          if [ -d "docs" ]; then
-            cp -r docs/* gh-pages/
-          fi
-
-          # Create a simple index for each library
+          # Create redirect for ng-osm-map
           cat > gh-pages/ng-osm-map/index.html << 'EOF'
           <!DOCTYPE html>
           <html>
           <head>
             <title>NgOsmMap - Redirecting...</title>
-            <meta http-equiv="refresh" content="0; url=./demo/">
+            <meta http-equiv="refresh" content="0; url=/ngmahesh/">
           </head>
           <body>
             <p>Redirecting to demo...</p>
           </body>
           </html>
           EOF
+
+          # Copy demos if built
+          if [ -d "dist/ng-osm-map-demo" ]; then
+            if [ -d "dist/ng-osm-map-demo/browser" ]; then
+              cp -r dist/ng-osm-map-demo/browser/* gh-pages/ng-osm-map/demo/
+            else
+              cp -r dist/ng-osm-map-demo/* gh-pages/ng-osm-map/demo/
+            fi
+          fi
+
+          # Copy documentation
+          if [ -d "docs" ]; then
+            cp -r docs/* gh-pages/ng-osm-map/docs/
+          fi
+
+          echo "Final GitHub Pages structure:"
+          ls -la gh-pages/
+          echo "Files in root:"
+          ls -la gh-pages/ | head -10
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
