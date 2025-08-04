@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
   release:
     types: [published]
 
@@ -30,12 +30,12 @@ jobs:
         run: |
           # Get changed files
           if [ "${{ github.event_name }}" = "push" ]; then
-            if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            if [ "${{ github.ref }}" = "refs/heads/master" ]; then
               # On main branch, compare with previous commit
               CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
             else
               # On other branches, compare with main
-              CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+              CHANGED_FILES=$(git diff --name-only origin/master...HEAD)
             fi
           else
             # For PRs, compare with target branch
@@ -61,7 +61,7 @@ jobs:
 
           # Should deploy (only on main or release branches)
           SHOULD_DEPLOY="false"
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
+          if [[ "${{ github.ref }}" == "refs/heads/master" ]] || [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
             SHOULD_DEPLOY="true"
           fi
 
@@ -234,7 +234,7 @@ jobs:
   # Build and deploy documentation
   deploy-docs:
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.docs-changed == 'true' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+    if: needs.detect-changes.outputs.docs-changed == 'true' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
     runs-on: ubuntu-latest
 
     steps:
