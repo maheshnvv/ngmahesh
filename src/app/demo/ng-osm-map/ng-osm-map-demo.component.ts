@@ -1,7 +1,9 @@
 import { Component, ViewChild, TemplateRef, ViewContainerRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { NgOsmMapComponent, NgOsmSearchInputDirective, PinObject, LocationObject, HighlightArea, MapClickEvent, SearchResult, PinDragEvent, AutocompleteSuggestion, AutocompleteSearchContext, TileLayerType, SelectedLocation, PinDeleteEvent, PinPopupContext } from '../../../../projects/ng-osm-map/src/public-api';
+import { NgOsmMapComponent, PinObject, LocationObject, HighlightArea, MapClickEvent, SearchResult, PinDragEvent, AutocompleteSuggestion,
+   AutocompleteSearchContext, TileLayerType, SelectedLocation, PinDeleteEvent, PinPopupContext } from '@ngmahesh/ng-osm-map';
+import { NgOsmSearchInputDirective } from '@ngmahesh/ng-osm-map';
 
 @Component({
   selector: 'app-ng-osm-map-demo',

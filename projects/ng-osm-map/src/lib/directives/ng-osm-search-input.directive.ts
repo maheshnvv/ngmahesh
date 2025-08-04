@@ -8,7 +8,6 @@ import {
   OnDestroy,
   OnChanges,
   SimpleChanges,
-  inject,
   NgZone,
   TemplateRef,
   ViewContainerRef,
@@ -26,10 +25,7 @@ import { NgOsmSearchConnectionService } from '../services/ng-osm-search-connecti
   exportAs: 'ngOsmSearchInput'
 })
 export class NgOsmSearchInputDirective implements OnInit, OnDestroy, OnChanges {
-  private readonly autocompleteService = inject(AutocompleteService);
-  private readonly ngZone = inject(NgZone);
-  private readonly viewContainer = inject(ViewContainerRef);
-  private readonly connectionService = inject(NgOsmSearchConnectionService);
+
 
   @Input() enableAutocomplete: boolean = true;
   @Input() debounceMs: number = 300;
@@ -57,7 +53,11 @@ export class NgOsmSearchInputDirective implements OnInit, OnDestroy, OnChanges {
   private isLoading: boolean = false;
   private searchInputId: string;
 
-  constructor(private elementRef: ElementRef<HTMLInputElement>) {
+  constructor(  private elementRef: ElementRef<HTMLInputElement>,
+  private autocompleteService: AutocompleteService,
+  private ngZone: NgZone,
+  private viewContainer: ViewContainerRef,
+  private connectionService: NgOsmSearchConnectionService) {
     this.inputElement = this.elementRef.nativeElement;
     this.searchInputId = `ng-osm-search-input-${Math.random().toString(36).substr(2, 9)}`;
   }
@@ -253,10 +253,10 @@ export class NgOsmSearchInputDirective implements OnInit, OnDestroy, OnChanges {
     const context: AutocompleteSearchContext = {
       $implicit: this.currentSuggestions,
       query: this.inputElement.value.trim(),
+      loading: this.isLoading,
       search: this.triggerSearch.bind(this),
       selectSuggestion: this.selectSuggestion.bind(this),
-      clearSuggestions: this.hideSuggestions.bind(this),
-      loading: this.isLoading
+      clearSuggestions: this.hideSuggestions.bind(this)
     };
 
     this.customTemplateView = this.viewContainer.createEmbeddedView(

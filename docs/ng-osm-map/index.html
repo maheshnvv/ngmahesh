@@ -21,16 +21,16 @@
 <body>
   <div class="container">
     <p><a href="../../index.html" class="back-link">← Back to Homepage</a></p>
-    
+
     <h1>🗺️ NgOsmMap Documentation</h1>
-    
+
     <h2>Overview</h2>
     <p>NgOsmMap is a comprehensive Angular library for OpenStreetMap integration using Leaflet. It provides a complete solution for interactive maps with advanced features.</p>
-    
+
     <h2>Installation</h2>
     <pre><code>npm install @ngmahesh/ng-osm-map leaflet
 npm install --save-dev @types/leaflet</code></pre>
-    
+
     <h2>Quick Start</h2>
     <pre><code>import { NgOsmMapModule } from '@ngmahesh/ng-osm-map';
 
@@ -39,7 +39,7 @@ npm install --save-dev @types/leaflet</code></pre>
   ...
 })
 export class AppModule { }</code></pre>
-    
+
     <h3>Basic Usage</h3>
     <pre><code>&lt;ng-osm-map
   [pins]="pins"
@@ -48,7 +48,7 @@ export class AppModule { }</code></pre>
   (mapClick)="onMapClick($event)"
   (locationSelected)="onLocationSelected($event)"&gt;
 &lt;/ng-osm-map&gt;</code></pre>
-    
+
     <h2>Features</h2>
     <ul class="feature-list">
       <li>Interactive map with Leaflet integration</li>
@@ -64,9 +64,9 @@ export class AppModule { }</code></pre>
       <li>Angular 18+ compatible</li>
       <li>Tree-shakable</li>
     </ul>
-    
+
     <h2>API Reference</h2>
-    
+
     <h3>NgOsmMapComponent</h3>
     <h4>Inputs</h4>
     <ul>
@@ -77,7 +77,7 @@ export class AppModule { }</code></pre>
       <li><code>height: number</code> - Map height in pixels</li>
       <li><code>width: string | number</code> - Map width</li>
     </ul>
-    
+
     <h4>Outputs</h4>
     <ul>
       <li><code>mapClick: EventEmitter&lt;MapClickEvent&gt;</code> - Map click events</li>
@@ -88,9 +88,9 @@ export class AppModule { }</code></pre>
       <li><code>pinDeleted: EventEmitter&lt;PinDeleteEvent&gt;</code> - Pin deletion events</li>
       <li><code>selectionChanged: EventEmitter&lt;SelectedLocation[]&gt;</code> - Selection change events</li>
     </ul>
-    
+
     <h2>Interfaces</h2>
-    
+
     <h3>PinObject</h3>
     <pre><code>interface PinObject {
   title?: string;
@@ -103,16 +103,16 @@ export class AppModule { }</code></pre>
   template?: TemplateRef&lt;PinPopupContext&gt;;
   data?: any;
 }</code></pre>
-    
+
     <h3>LocationObject</h3>
     <pre><code>interface LocationObject {
   latitude: number;
   longitude: number;
   addressInfo?: AddressInfo;
 }</code></pre>
-    
+
     <h2>Examples</h2>
-    
+
     <h3>Basic Map with Pins</h3>
     <pre><code>export class MyComponent {
   pins: PinObject[] = [
@@ -128,12 +128,12 @@ export class AppModule { }</code></pre>
       color: 'blue'
     }
   ];
-  
+
   onMapClick(event: MapClickEvent) {
     console.log('Map clicked:', event.location);
   }
 }</code></pre>
-    
+
     <h3>Template-based Popups</h3>
     <pre><code>&lt;ng-template #customPopup let-location let-pin="pin" let-deletePin="deletePin"&gt;
   &lt;div&gt;
@@ -142,24 +142,24 @@ export class AppModule { }</code></pre>
     &lt;button (click)="deletePin()"&gt;Delete Pin&lt;/button&gt;
   &lt;/div&gt;
 &lt;/ng-template&gt;</code></pre>
-    
+
     <h2>Advanced Features</h2>
-    
+
     <h3>Geocoding</h3>
     <p>The library includes built-in geocoding services using OpenStreetMap Nominatim API.</p>
-    
+
     <h3>Search and Autocomplete</h3>
     <p>Integrated search functionality with autocomplete suggestions.</p>
-    
+
     <h3>Selection System</h3>
     <p>Advanced selection system supporting both single and multi-select modes.</p>
-    
+
     <h3>Multiple Tile Layers</h3>
     <p>Support for various map tile providers including OpenStreetMap, satellite imagery, and custom themes.</p>
-    
+
     <h2>License</h2>
     <p>MIT License</p>
-    
+
     <h2>Support</h2>
     <p>For issues and questions, please visit our <a href="https://github.com/ngmahesh/ng-libraries/issues">GitHub Issues page</a>.</p>
   </div>

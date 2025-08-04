@@ -29,46 +29,46 @@
       <section class="libraries-section">
         <h2>📚 Available Libraries</h2>
         <div class="libraries-grid">
-          <div 
-            *ngFor="let library of libraries" 
+          <div
+            *ngFor="let library of libraries"
             class="library-card"
             [class.library-stable]="library.status === 'stable'"
             [class.library-beta]="library.status === 'beta'"
             [class.library-alpha]="library.status === 'alpha'">
-            
+
             <div class="library-header">
               <h3 class="library-name">{{ library.name }}</h3>
               <span class="library-status" [attr.data-status]="library.status">
                 {{ library.status }}
               </span>
             </div>
-            
+
             <p class="library-description">{{ library.description }}</p>
-            
+
             <div class="library-npm">
               <code class="npm-install">npm install {{ library.npmPackage }}</code>
-              <button 
-                class="copy-btn" 
+              <button
+                class="copy-btn"
                 (click)="copyToClipboard('npm install ' + library.npmPackage)"
                 title="Copy install command">
                 📋
               </button>
             </div>
-            
+
             <div class="npm-stats" *ngIf="library.npmStats">
               <small>
-                <span class="downloads">📊 {{ library.npmStats.downloads }} downloads</span> • 
+                <span class="downloads">📊 {{ library.npmStats.downloads }} downloads</span> •
                 <span class="version">📦 v{{ library.npmStats.version }}</span>
               </small>
             </div>
-            
+
             <div class="library-features">
               <h4>Key Features:</h4>
               <ul class="features-list">
                 <li *ngFor="let feature of library.features">{{ feature }}</li>
               </ul>
             </div>
-            
+
             <div class="library-links">
               <a [routerLink]="library.demoPath" class="btn btn-demo">
                 🔗 Live Demo
@@ -111,8 +111,8 @@
         <h2>ℹ️ About NgMahesh Libraries</h2>
         <div class="about-content">
           <p>
-            NgMahesh Libraries is a collection of high-quality, well-tested Angular libraries 
-            designed to accelerate your development process. Each library follows Angular best 
+            NgMahesh Libraries is a collection of high-quality, well-tested Angular libraries
+            designed to accelerate your development process. Each library follows Angular best
             practices and provides comprehensive documentation and examples.
           </p>
           <div class="features-grid">

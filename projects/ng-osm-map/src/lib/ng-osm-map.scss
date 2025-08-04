@@ -1,0 +1,21 @@
+// Import Leaflet CSS from local assets
+@import '../assets/leaflet/leaflet.css';
+
+// Custom styles for the ng-osm-map library
+.ng-osm-map-container {
+  .leaflet-container {
+    font-family: inherit;
+  }
+  
+  // Ensure proper z-index for popups
+  .leaflet-popup {
+    z-index: 1000;
+  }
+  
+  // Custom marker styles if needed
+  .custom-marker {
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+}

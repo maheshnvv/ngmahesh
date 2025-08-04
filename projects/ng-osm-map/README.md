@@ -2,6 +2,13 @@
 
 An Angular 18+ library for integrating OpenStreetMap with Leaflet, providing a simple directive to convert any div into an interactive map.
 
+## 🔗 Links
+
+- **Demo**: [Live Demo](https://maheshnvv.github.io/ngmahesh/)
+- **Documentation**: [Full Documentation](https://maheshnvv.github.io/ngmahesh/docs/ng-osm-map)
+- **Repository**: [GitHub](https://github.com/maheshnvv/ngmahesh)
+- **Issues**: [Report Issues](https://github.com/maheshnvv/ngmahesh/issues)
+
 ## Features
 
 - 🗺️ **Easy Integration**: Simple directive to convert any div to a map
@@ -15,14 +22,16 @@ An Angular 18+ library for integrating OpenStreetMap with Leaflet, providing a s
 ## Installation
 
 ```bash
-npm install ng-osm-map leaflet @types/leaflet
+npm install @ngmahesh/ng-osm-map
 ```
+
+**That's it!** The library automatically includes all necessary styles and dependencies. No additional configuration needed.
 
 ## Basic Usage
 
 ```typescript
 import { Component } from '@angular/core';
-import { NgOsmMapDirective, PinObject, LocationObject } from 'ng-osm-map';
+import { NgOsmMapDirective, PinObject, LocationObject } from '@ngmahesh/ng-osm-map';
 
 @Component({
   selector: 'app-map',
@@ -62,6 +71,15 @@ Run `ng build ng-osm-map` to build the project. The build artifacts will be stor
 ## Publishing
 
 After building your library with `ng build ng-osm-map`, go to the dist folder `cd dist/ng-osm-map` and run `npm publish`.
+
+## 🤝 Contributing
+
+1. Fork the [repository](https://github.com/maheshnvv/ngmahesh)
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Update documentation
+6. Submit a pull request
 
 ## License
 

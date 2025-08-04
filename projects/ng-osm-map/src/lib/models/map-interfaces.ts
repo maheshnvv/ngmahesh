@@ -291,6 +291,20 @@ export interface AutocompleteSuggestion {
 }
 
 /**
+ * Context provided to autocomplete search templates
+ */
+export interface AutocompleteSearchContext {
+  /** The current autocomplete suggestions */
+  $implicit: AutocompleteSuggestion[];
+  /** The current search query string */
+  query: string;
+  /** Function to select a suggestion */
+  selectSuggestion: (suggestion: AutocompleteSuggestion) => void;
+  /** Whether suggestions are currently loading */
+  loading: boolean;
+}
+
+/**
  * Search input configuration for external input binding
  */
 export interface SearchInputConfig {
@@ -304,26 +318,6 @@ export interface SearchInputConfig {
   dropdownContainer?: string | HTMLElement;
   /** Auto-focus input on map load */
   autoFocus?: boolean;
-  /** Template reference for custom autocomplete search input */
-  customSearchTemplate?: TemplateRef<AutocompleteSearchContext>;
-}
-
-/**
- * Context provided to custom autocomplete search templates
- */
-export interface AutocompleteSearchContext {
-  /** Array of autocomplete suggestions */
-  $implicit: AutocompleteSuggestion[];
-  /** Current search query */
-  query: string;
-  /** Function to trigger search */
-  search: (query: string) => void;
-  /** Function to select a suggestion */
-  selectSuggestion: (suggestion: AutocompleteSuggestion) => void;
-  /** Function to clear suggestions */
-  clearSuggestions: () => void;
-  /** Loading state */
-  loading: boolean;
 }
 
 /**
@@ -408,4 +402,22 @@ export interface SelectionOptions {
   showDeleteButton?: boolean;
   /** Allow deleting individual pins from tooltip */
   allowPinDeletion?: boolean;
+}
+
+/**
+ * Context provided to autocomplete search templates
+ */
+export interface AutocompleteSearchContext {
+  /** Array of autocomplete suggestions */
+  $implicit: AutocompleteSuggestion[];
+  /** Current search query */
+  query: string;
+  /** Whether suggestions are loading */
+  loading: boolean;
+  /** Callback to trigger a search */
+  search: (query: string) => void;
+  /** Callback to select a suggestion */
+  selectSuggestion: (suggestion: AutocompleteSuggestion) => void;
+  /** Callback to clear suggestions */
+  clearSuggestions: () => void;
 }

@@ -10,5 +10,5 @@ import { RouterModule } from '@angular/router';
   styleUrl: './ng-osm-map-docs.component.scss'
 })
 export class NgOsmMapDocsComponent {
-  
+
 }

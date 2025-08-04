@@ -10,7 +10,8 @@
     "test:lib": "ng test ng-osm-map",
     "watch": "ng build --watch --configuration development",
     "lint": "ng lint",
-    "publish:lib": "cd dist/ng-osm-map && npm publish --access public"
+    "publish:lib": "cd dist/ng-osm-map && npm publish --access public",
+    "install-local": "npm link ./dist/ng-osm-map"
   },
   "private": true,
   "dependencies": {

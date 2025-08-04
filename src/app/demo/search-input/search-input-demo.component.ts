@@ -1,6 +1,6 @@
 import { Component, TemplateRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { NgOsmMapComponent, NgOsmSearchInputDirective, PinObject, LocationObject, MapClickEvent, SearchResult, AutocompleteSuggestion, AutocompleteSearchContext } from '../../../../projects/ng-osm-map/src/public-api';
+import { NgOsmMapComponent, NgOsmSearchInputDirective, PinObject, LocationObject, MapClickEvent, SearchResult, AutocompleteSuggestion, AutocompleteSearchContext } from '@ngmahesh/ng-osm-map';
 
 @Component({
   selector: 'app-search-input-demo',

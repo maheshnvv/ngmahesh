@@ -2,6 +2,13 @@
 
 The `NgOsmSearchInputDirective` provides a powerful way to create custom search inputs that are connected to NgOsmMap instances. This directive replaces the previous DOM query-based approach with a clean Angular directive-based solution.
 
+## 🔗 Links
+
+- **Demo**: [Live Demo](https://maheshnvv.github.io/ngmahesh/)
+- **Documentation**: [Full Documentation](https://maheshnvv.github.io/ngmahesh/ng-osm-map/docs/)
+- **Repository**: [GitHub](https://github.com/maheshnvv/ngmahesh)
+- **Issues**: [Report Issues](https://github.com/maheshnvv/ngmahesh/issues)
+
 ## Features
 
 - **Decoupled Architecture**: Search inputs are completely separate from map components

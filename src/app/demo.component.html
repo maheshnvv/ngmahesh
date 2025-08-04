@@ -1,0 +1,354 @@
+<!-- Demo Application for NgOsmMap Library -->
+
+<header class="header">
+  <div class="container">
+    <div class="header-nav">
+      <a routerLink="/" class="back-link">← Back to Homepage</a>
+    </div>
+    <h1>🗺️ NgOsmMap Demo</h1>
+    <p>Angular 18+ OpenStreetMap integration with Leaflet</p>
+  </div>
+</header>
+
+<main class="main">
+  <div class="container">
+
+    <!-- External Search Input -->
+    <section class="search-section">
+      <h2>External Search with Autocomplete</h2>
+      <div class="search-wrapper">
+        <input
+          id="external-search-input"
+          type="text"
+          placeholder="Search locations... (try typing 'New York')"
+          class="search-input">
+        <p class="search-note">This input is bound to the map and shows autocomplete suggestions</p>
+        <p class="search-note">💡 When you search and then drag the red search result pin, this input will update automatically!</p>
+        <p class="search-note">📍 Click on the map to select locations. Use the Multi Select button to enable multiple selections.</p>
+        <p class="search-note">� Search results always use single selection, regardless of multi-select mode.</p>
+        <p class="search-note">�🗑️ Click on pins to see their details and delete them individually using the delete button in the popup.</p>
+      </div>
+    </section>
+
+    <!-- Controls -->
+    <section class="controls">
+      <h2>Map Controls</h2>
+      <div class="button-group">
+        <button class="btn btn-primary" (click)="addRandomPin()">
+          📍 Add Random Pin
+        </button>
+        <button class="btn btn-primary" (click)="addSinglePin()">
+          🏙️ Add City Pin (Efficient)
+        </button>
+        <button class="btn btn-secondary" (click)="clearPins()">
+          🧹 Clear Pins
+        </button>
+        <button class="btn btn-info" (click)="zoomToNewYork()">
+          🏙️ Zoom to NYC
+        </button>
+        <button class="btn btn-success" (click)="zoomToWorld()">
+          🌍 World View
+        </button>
+        <button class="btn btn-warning" (click)="movePinToLondon()" [disabled]="pins.length === 0">
+          🇬🇧 Move First Pin to London
+        </button>
+        <button class="btn btn-info" (click)="clearSelections()">
+          🧹 Clear Selections
+        </button>
+        <button class="btn btn-success" (click)="toggleMultiSelect()">
+          {{ isMultiSelectEnabled() ? '📍 Single Select' : '📍 Multi Select' }}
+        </button>
+        <button class="btn btn-secondary" (click)="testTemplatePopups()">
+          🧩 Test Templates
+        </button>
+        <button class="btn btn-outline-secondary" (click)="clearCache()">
+          🗑️ Clear Cache
+        </button>
+      </div>
+      <p class="pin-count">Current pins: {{ pins.length }}</p>
+      <p class="selection-mode-info">{{ getSelectionModeDescription() }}</p>
+    </section>
+
+    <!-- Tile Layer Controls -->
+    <section class="tile-layer-controls">
+      <h2>🗺️ Map Layers</h2>
+      <p class="current-layer">Current Layer: <strong>{{ getCurrentTileLayerName() }}</strong></p>
+      <div class="layer-buttons">
+        <button
+          *ngFor="let layer of tileLayerOptions"
+          class="btn btn-layer"
+          [class.active]="currentTileLayer === layer.type"
+          (click)="switchTileLayer(layer.type)"
+          [title]="layer.description">
+          {{ layer.name }}
+        </button>
+      </div>
+      <p class="layer-note">
+        <small>💡 The map also has a built-in layer control in the top-right corner</small>
+      </p>
+    </section>
+
+    <!-- Interactive Map with All Features -->
+    <section class="map-section">
+      <h2>Interactive Map with All Features</h2>
+      <ng-osm-map
+        #mapComponent
+        [pins]="pins"
+        [zoomInto]="centerLocation"
+        [highlightAreas]="highlightAreas"
+        [mapOptions]="mapOptions"
+        [height]="400"
+        [width]="'100%'"
+        (mapClick)="onMapClick($event)"
+        (locationSelected)="onLocationSelected($event)"
+        (searchResult)="onSearchResult($event)"
+        (pinDragged)="onPinDragged($event)"
+        (autocompleteResults)="onAutocompleteResults($event)"
+        (pinDeleted)="onPinDeleted($event)"
+        (selectionChanged)="onSelectionChanged($event)"
+        class="map-container">
+      </ng-osm-map>
+    </section>
+
+    <!-- Event Information Panels -->
+    <section class="info-panels">
+      <h2>Live Event Information</h2>
+      <div class="panel-grid">
+
+        <!-- Click Events -->
+        <div class="info-panel">
+          <h3>🖱️ Click Events</h3>
+          <div class="info-content">
+            <h4>Last Selected Location:</h4>
+            <pre>{{ getSelectedLocationInfo() }}</pre>
+            <div class="pin-tracker" *ngIf="selectedLocationPinIndex >= 0 && pins[selectedLocationPinIndex]">
+              <small>🔗 Tracked pin: #{{ selectedLocationPinIndex + 1 }} ({{ pins[selectedLocationPinIndex].title || 'Selected Location' }})</small>
+            </div>
+
+            <h4>Click History (last 5):</h4>
+            <div class="history-list" *ngFor="let click of clickHistory; let i = index">
+              <small>{{ i + 1 }}. Lat: {{ click.coordinates.latitude.toFixed(4) }},
+                Lng: {{ click.coordinates.longitude.toFixed(4) }}
+                <ng-container *ngIf="getTruncatedAddress(click.addressInfo)"> - {{ getTruncatedAddress(click.addressInfo) }}</ng-container>
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Search Events -->
+        <div class="info-panel">
+          <h3>🔍 Search Events</h3>
+          <div class="info-content">
+            <h4>Last Search Result:</h4>
+            <pre>{{ getSearchResultInfo() }}</pre>
+            <div class="pin-tracker" *ngIf="searchResultPinIndex >= 0 && pins[searchResultPinIndex]">
+              <small>🔗 Tracked pin: #{{ searchResultPinIndex + 1 }} ({{ pins[searchResultPinIndex].title || 'Search Result' }})</small>
+            </div>
+
+            <h4>Autocomplete Suggestions:</h4>
+            <div class="history-list" *ngFor="let suggestion of autocompleteHistory; let i = index">
+              <small>{{ i + 1 }}. {{ suggestion.displayText }}</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Drag Events -->
+        <div class="info-panel">
+          <h3>🔄 Pin Drag Events</h3>
+          <div class="info-content">
+            <h4>Last Dragged Pin:</h4>
+            <pre>{{ getDragHistoryInfo() }}</pre>
+
+            <h4>Drag History (last 5):</h4>
+            <div class="history-list" *ngFor="let drag of dragHistory; let i = index">
+              <small>{{ i + 1 }}. {{ drag.originalPin.title || 'Pin' }} moved to
+                {{ drag.newCoordinates.latitude.toFixed(4) }}, {{ drag.newCoordinates.longitude.toFixed(4) }}
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Selections and Deletions -->
+        <div class="info-panel">
+          <h3>📍 Selections & Deletions</h3>
+          <div class="info-content">
+            <h4>Current Selections:</h4>
+            <pre>{{ getSelectedLocationsInfo() }}</pre>
+            <small class="multi-select-status">
+              Multi-select: {{ isMultiSelectEnabled() ? 'ON' : 'OFF' }}
+            </small>
+
+            <h4>Recent Deletions:</h4>
+            <pre>{{ getDeleteHistoryInfo() }}</pre>
+            <div class="history-list" *ngFor="let deletion of deleteHistory; let i = index">
+              <small>{{ i + 1 }}. {{ deletion.deletedPin.title || 'Pin' }} ({{ deletion.reason }})</small>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Features Overview -->
+    <section class="features">
+      <h2>🚀 Features Demonstrated</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h3>�️ Multiple Map Layers</h3>
+          <p>Switch between different map layers: Street, Satellite, Terrain, Dark, Light, Watercolor, and Toner themes</p>
+        </div>
+        <div class="feature-card">
+          <h3>�📍 Draggable Pins</h3>
+          <p>Some pins are draggable - try dragging the NYC, Google, and Tokyo pins!</p>
+        </div>
+        <div class="feature-card">
+          <h3>🔍 Smart Search with Autocomplete</h3>
+          <p>Built-in search control with autocomplete suggestions and external input binding</p>
+        </div>
+        <div class="feature-card">
+          <h3>🖱️ Smart Selection System</h3>
+          <p><strong>Single-Select Mode:</strong> Map clicks and search results are synced (both single selection)<br>
+             <strong>Multi-Select Mode:</strong> Map clicks allow multiple selections, search results remain single</p>
+        </div>
+        <div class="feature-card">
+          <h3>🗑️ Pin Management</h3>
+          <p>Delete pins individually from tooltips, track deletion history, and manage selections programmatically</p>
+        </div>
+        <div class="feature-card">
+          <h3>🎯 Smart Zoom</h3>
+          <p>Automatically center and zoom to specific locations</p>
+        </div>
+        <div class="feature-card">
+          <h3>🎨 Area Highlighting</h3>
+          <p>Highlight areas with custom borders and fill colors (Times Square area shown)</p>
+        </div>
+        <div class="feature-card">
+          <h3>🌍 Geocoding</h3>
+          <p>Built-in address resolution using OpenStreetMap Nominatim API</p>
+        </div>
+        <div class="feature-card">
+          <h3>⚡ Dynamic Updates</h3>
+          <p>Add, remove, and update pins dynamically with event feedback</p>
+        </div>
+        <div class="feature-card">
+          <h3>🎮 Full Control</h3>
+          <p>Access to underlying Leaflet map instance for advanced customization</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- Template-based Popup Features -->
+<section class="template-features">
+  <div class="container">
+    <h2>🧩 Template-based Pin Popups</h2>
+    <div class="feature-description">
+      <p>
+        The library now supports custom Angular templates for pin popups! This allows you to:
+      </p>
+      <ul class="feature-list">
+        <li>🎨 Create rich, interactive popup content with full Angular features</li>
+        <li>📦 Pass location object, pin data, and pin index to your template</li>
+        <li>🗑️ Implement custom delete functionality with a provided callback</li>
+        <li>💡 Use Angular directives, pipes, and components within popups</li>
+      </ul>
+      <p class="template-demo-note">
+        <strong>🌟 Try it out:</strong> Look for the <span class="highlight">London</span> and
+        <span class="highlight">Berlin</span> pins on the map - they use custom templates with
+        rich content and interactive features!
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- Template definitions for custom pin popups -->
+<ng-template #customPopupTemplate let-location let-pin="pin" let-pinIndex="pinIndex">
+  <div class="custom-popup">
+    <div class="popup-header">
+      <h3>🌟 {{ pin.title }}</h3>
+      <span class="coordinates">{{ location.latitude?.toFixed(4) }}, {{ location.longitude?.toFixed(4) }}</span>
+    </div>
+
+    <div class="popup-content">
+      <div class="city-info" *ngIf="pin.data?.cityInfo">
+        <div class="info-item">
+          <strong>👥 Population:</strong> {{ pin.data.cityInfo.population }}
+        </div>
+        <div class="info-item">
+          <strong>📅 Established:</strong> {{ pin.data.cityInfo.established }}
+        </div>
+        <div class="info-item">
+          <strong>🏛️ Famous Landmarks:</strong>
+          <ul class="landmarks-list">
+            <li *ngFor="let landmark of pin.data.cityInfo.landmarks">{{ landmark }}</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="popup-actions">
+        <small class="pin-info">Pin #{{ pinIndex }} • {{ pin.draggable ? 'Draggable' : 'Fixed' }}</small>
+      </div>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #deleteablePopupTemplate let-location let-pin="pin" let-pinIndex="pinIndex" let-deletePin="deletePin">
+  <div class="deleteable-popup">
+    <div class="popup-header">
+      <h3>🗑️ {{ pin.title }}</h3>
+      <button class="close-btn" onclick="this.closest('.leaflet-popup').querySelector('.leaflet-popup-close-button').click()">&times;</button>
+    </div>
+
+    <div class="popup-content">
+      <div class="location-info">
+        <p><strong>📍 Location:</strong> {{ location.latitude?.toFixed(6) }}, {{ location.longitude?.toFixed(6) }}</p>
+        <p><strong>🎨 Color:</strong> <span class="color-preview" [style.background-color]="pin.color">{{ pin.color }}</span></p>
+      </div>
+
+      <div class="city-info" *ngIf="pin.data?.cityInfo">
+        <div class="info-grid">
+          <div class="info-card">
+            <div class="info-label">Population</div>
+            <div class="info-value">{{ pin.data.cityInfo.population }}</div>
+          </div>
+          <div class="info-card">
+            <div class="info-label">Founded</div>
+            <div class="info-value">{{ pin.data.cityInfo.established }}</div>
+          </div>
+        </div>
+
+        <div class="landmarks-section">
+          <h4>Famous Landmarks:</h4>
+          <div class="landmarks-tags">
+            <span class="landmark-tag" *ngFor="let landmark of pin.data.cityInfo.landmarks">
+              {{ landmark }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="popup-actions">
+        <button class="btn-delete" (click)="deletePin()">
+          🗑️ Delete This Pin
+        </button>
+        <small class="pin-info">Template-based popup with custom delete action</small>
+      </div>
+    </div>
+  </div>
+</ng-template>
+
+<footer class="footer">
+  <div class="container">
+    <p>&copy; 2025 NgOsmMap Library - Built with Angular 18 & Leaflet</p>
+    <p>
+      <a href="https://www.openstreetmap.org/copyright" target="_blank">
+        © OpenStreetMap contributors
+      </a> |
+      <a href="https://leafletjs.com/" target="_blank">
+        Powered by Leaflet
+      </a>
+    </p>
+  </div>
+</footer>

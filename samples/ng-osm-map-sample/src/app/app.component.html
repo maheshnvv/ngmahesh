@@ -1,0 +1,35 @@
+<div class="container">
+  <h1>🗺️ NgOsmMap Sample Application</h1>
+
+  <div class="info-box">
+    <strong>📦 Installation:</strong> npm install &#64;ngmahesh/ng-osm-map
+  </div>
+
+  <!-- External Search Input -->
+  <div class="section">
+    <h2>External Search Input</h2>
+    <input
+      id="external-search-input"
+      type="text"
+      placeholder="Search for locations..."
+      class="search-input">
+  </div>
+
+  <!-- Map -->
+  <div class="section">
+    <h2>Interactive Map</h2>
+    <div class="map-container">
+      <div
+        ngOsmMap
+        [pins]="mapPins"
+        [mapOptions]="mapOptions"
+        (mapClick)="onMapClick($event)"
+        (searchResult)="onLocationSelected($event)"
+        style="height: 400px; width: 100%; border: 2px solid #4caf50; border-radius: 8px;">
+      </div>
+    </div>
+    <div class="info-box" *ngIf="lastClickedLocation">
+      <strong>Last clicked:</strong> {{ lastClickedLocation.latitude | number:'1.4-4' }}, {{ lastClickedLocation.longitude | number:'1.4-4' }}
+    </div>
+  </div>
+</div>

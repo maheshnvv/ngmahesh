@@ -2,6 +2,16 @@
   "$schema": "../../node_modules/ng-packagr/ng-package.schema.json",
   "dest": "../../dist/ng-osm-map",
   "lib": {
-    "entryFile": "src/public-api.ts"
-  }
+    "entryFile": "src/public-api.ts",
+    "cssUrl": "inline"
+  },
+  "allowedNonPeerDependencies": [
+    "leaflet"
+  ],
+  "assets": [
+    "src/assets/**/*",
+    "src/lib/**/*.scss",
+    "scripts/**/*",
+    "package.json"
+  ]
 }

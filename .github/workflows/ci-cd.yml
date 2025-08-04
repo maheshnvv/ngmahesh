@@ -1,46 +1,12 @@
 name: CI/CD Pipeline
 
-# Add permissions for GitHub Pages deployment
-permissions:
-  contents: write
-  pages: write
-  id-token: write
-  actions: read
-  packages: write
-
 on:
   push:
-    branches: [ master, develop ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
   release:
     types: [published]
-  workflow_dispatch:
-    inputs:
-      force_libraries:
-        description: 'Force build/publish specific libraries (comma-separated, e.g., ng-osm-map)'
-        required: false
-        default: ''
-        type: string
-      force_docs:
-        description: 'Force build/deploy documentation'
-        required: false
-        default: false
-        type: boolean
-      version_bump:
-        description: 'Version bump type for forced libraries'
-        required: false
-        default: 'patch'
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-      skip_tests:
-        description: 'Skip tests during manual run'
-        required: false
-        default: false
-        type: boolean
 
 env:
   NODE_VERSION: '18.x'
@@ -62,44 +28,14 @@ jobs:
       - name: Detect changes
         id: changes
         run: |
-          # Handle manual workflow dispatch
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "Manual workflow dispatch detected"
-
-            # Parse force_libraries input
-            FORCE_LIBS="${{ github.event.inputs.force_libraries }}"
-            if [ -n "$FORCE_LIBS" ]; then
-              # Convert comma-separated string to JSON array
-              LIBRARIES=$(echo "$FORCE_LIBS" | tr ',' '\n' | jq -R -s -c 'split("\n") | map(select(length > 0)) | map(gsub("^\\s+|\\s+$"; ""))')
-            else
-              LIBRARIES="[]"
-            fi
-
-            # Force docs if requested
-            DOCS_CHANGED="${{ github.event.inputs.force_docs }}"
-
-            # Always allow deploy for manual triggers on master
-            SHOULD_DEPLOY="true"
-
-            echo "libraries=$LIBRARIES" >> $GITHUB_OUTPUT
-            echo "docs=$DOCS_CHANGED" >> $GITHUB_OUTPUT
-            echo "should-deploy=$SHOULD_DEPLOY" >> $GITHUB_OUTPUT
-
-            echo "Manual trigger - Libraries: $LIBRARIES"
-            echo "Manual trigger - Docs: $DOCS_CHANGED"
-            echo "Manual trigger - Deploy: $SHOULD_DEPLOY"
-
-            exit 0
-          fi
-
           # Get changed files
           if [ "${{ github.event_name }}" = "push" ]; then
-            if [ "${{ github.ref }}" = "refs/heads/master" ]; then
-              # On master branch, compare with previous commit
+            if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              # On main branch, compare with previous commit
               CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
             else
-              # On other branches, compare with master
-              CHANGED_FILES=$(git diff --name-only origin/master...HEAD)
+              # On other branches, compare with main
+              CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
             fi
           else
             # For PRs, compare with target branch
@@ -114,7 +50,7 @@ jobs:
 
           # Check ng-osm-map
           if echo "$CHANGED_FILES" | grep -q "^projects/ng-osm-map/"; then
-            LIBRARIES=$(echo "$LIBRARIES" | jq -c '. + ["ng-osm-map"]')
+            LIBRARIES=$(echo "$LIBRARIES" | jq '. + ["ng-osm-map"]')
           fi
 
           # Check if docs changed
@@ -123,9 +59,9 @@ jobs:
             DOCS_CHANGED="true"
           fi
 
-          # Should deploy (only on master or release branches)
+          # Should deploy (only on main or release branches)
           SHOULD_DEPLOY="false"
-          if [[ "${{ github.ref }}" == "refs/heads/master" ]] || [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
             SHOULD_DEPLOY="true"
           fi
 
@@ -156,19 +92,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: Clean npm cache and dependencies (fix for npm optional dependencies bug)
-        run: |
-          rm -rf package-lock.json node_modules
-          npm cache clean --force
-
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build library
         run: npm run build ${{ matrix.library }}
 
       - name: Test library
-        if: github.event.inputs.skip_tests != 'true'
         run: |
           # Add tests when available
           echo "Testing ${{ matrix.library }}"
@@ -186,11 +116,6 @@ jobs:
     needs: [detect-changes, build-and-test]
     if: needs.detect-changes.outputs.should-deploy == 'true' && needs.detect-changes.outputs.libraries != '[]'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-      id-token: write
-      actions: write
     strategy:
       matrix:
         library: ${{ fromJson(needs.detect-changes.outputs.libraries) }}
@@ -202,11 +127,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Configure Git
-        run: |
-          git config --global user.email "action@github.com"
-          git config --global user.name "GitHub Action"
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -214,13 +134,8 @@ jobs:
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Clean npm cache and dependencies (fix for npm optional dependencies bug)
-        run: |
-          rm -rf package-lock.json node_modules
-          npm cache clean --force
-
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -231,29 +146,23 @@ jobs:
       - name: Determine version bump
         id: version
         run: |
-          # Use manual input if available
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version_bump }}" ]; then
-            BUMP_TYPE="${{ github.event.inputs.version_bump }}"
-            echo "Using manual version bump: $BUMP_TYPE"
-          else
-            # Determine version bump type based on commit messages or branch
-            BUMP_TYPE="patch"
+          # Determine version bump type based on commit messages or branch
+          BUMP_TYPE="patch"
 
-            # Check commit messages for version hints
-            COMMIT_MSG="${{ github.event.head_commit.message }}"
-            if [[ "$COMMIT_MSG" == *"BREAKING CHANGE"* ]] || [[ "$COMMIT_MSG" == *"major:"* ]]; then
+          # Check commit messages for version hints
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          if [[ "$COMMIT_MSG" == *"BREAKING CHANGE"* ]] || [[ "$COMMIT_MSG" == *"major:"* ]]; then
+            BUMP_TYPE="major"
+          elif [[ "$COMMIT_MSG" == *"feat:"* ]] || [[ "$COMMIT_MSG" == *"feature:"* ]]; then
+            BUMP_TYPE="minor"
+          fi
+
+          # Override for release branches
+          if [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
+            if [[ "${{ github.ref }}" == *"major"* ]]; then
               BUMP_TYPE="major"
-            elif [[ "$COMMIT_MSG" == *"feat:"* ]] || [[ "$COMMIT_MSG" == *"feature:"* ]]; then
+            elif [[ "${{ github.ref }}" == *"minor"* ]]; then
               BUMP_TYPE="minor"
-            fi
-
-            # Override for release branches
-            if [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
-              if [[ "${{ github.ref }}" == *"major"* ]]; then
-                BUMP_TYPE="major"
-              elif [[ "${{ github.ref }}" == *"minor"* ]]; then
-                BUMP_TYPE="minor"
-              fi
             fi
           fi
 
@@ -286,14 +195,13 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Create Git tag and push
+      - name: Create Git tag
         run: |
-          TAG_NAME="${{ matrix.library }}-v${{ steps.bump.outputs.new-version }}"
-          echo "Creating tag: $TAG_NAME"
-          git tag -a "$TAG_NAME" -m "Release ${{ matrix.library }} v${{ steps.bump.outputs.new-version }}"
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
 
-          # Configure git to use the token for authentication
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          TAG_NAME="${{ matrix.library }}-v${{ steps.bump.outputs.new-version }}"
+          git tag -a "$TAG_NAME" -m "Release ${{ matrix.library }} v${{ steps.bump.outputs.new-version }}"
           git push origin "$TAG_NAME"
 
       - name: Create GitHub Release
@@ -326,12 +234,8 @@ jobs:
   # Build and deploy documentation
   deploy-docs:
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.docs-changed == 'true' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
+    if: needs.detect-changes.outputs.docs-changed == 'true' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
 
     steps:
       - name: Checkout
@@ -343,16 +247,11 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: Clean npm cache and dependencies (fix for npm optional dependencies bug)
-        run: |
-          rm -rf package-lock.json node_modules
-          npm cache clean --force
-
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build main application (homepage)
-        run: npm run build -- --base-href="/ngmahesh/"
+        run: npm run build
 
       - name: Build library demos
         run: |
@@ -360,7 +259,7 @@ jobs:
           if [ -d "projects/ng-osm-map" ]; then
             echo "Building ng-osm-map demo..."
             npm run build ng-osm-map
-            # Create demo app build with correct base href
+            # Create demo app build (this would be a separate demo app)
             mkdir -p dist/ng-osm-map-demo
             cp -r dist/ngmahesh/* dist/ng-osm-map-demo/ 2>/dev/null || true
           fi
@@ -370,62 +269,30 @@ jobs:
           # Create the final dist structure for GitHub Pages
           mkdir -p gh-pages
 
-          # Debug: Check what was built
-          echo "Checking dist directory structure:"
-          ls -la dist/
+          # Copy main homepage
+          cp -r dist/ngmahesh/* gh-pages/
 
-          # Angular build creates a browser folder inside the project name
-          BUILD_DIR=""
-          if [ -d "dist/ngmahesh/browser" ]; then
-            BUILD_DIR="dist/ngmahesh/browser"
-            echo "Found Angular 17+ build output in: $BUILD_DIR"
-          elif [ -d "dist/ngmahesh" ]; then
-            BUILD_DIR="dist/ngmahesh"
-            echo "Found Angular build output in: $BUILD_DIR"
-          else
-            echo "Error: No build output found!"
-            ls -la dist/
-            exit 1
-          fi
-
-          # Copy the built Angular app to gh-pages root
-          cp -r $BUILD_DIR/* gh-pages/
-
-          # Add .nojekyll file to prevent Jekyll processing
-          touch gh-pages/.nojekyll
-
-          # Create 404.html for SPA routing
-          cat > gh-pages/404.html << 'EOF'
-          <!doctype html>
-          <html lang="en">
-          <head>
-            <meta charset="utf-8">
-            <title>NgMahesh</title>
-            <base href="/ngmahesh/">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <link rel="icon" type="image/x-icon" href="favicon.ico">
-            <script>
-              // Redirect 404s to index.html for SPA routing
-              window.location.href = '/ngmahesh/';
-            </script>
-          </head>
-          <body>
-            <p>Redirecting...</p>
-          </body>
-          </html>
-          EOF
-
-          # Create library-specific folders and redirects
+          # Create library-specific folders
           mkdir -p gh-pages/ng-osm-map/demo
           mkdir -p gh-pages/ng-osm-map/docs
 
-          # Create redirect for ng-osm-map
+          # Copy demos (if built)
+          if [ -d "dist/ng-osm-map-demo" ]; then
+            cp -r dist/ng-osm-map-demo/* gh-pages/ng-osm-map/demo/
+          fi
+
+          # Copy documentation
+          if [ -d "docs" ]; then
+            cp -r docs/* gh-pages/
+          fi
+
+          # Create a simple index for each library
           cat > gh-pages/ng-osm-map/index.html << 'EOF'
           <!DOCTYPE html>
           <html>
           <head>
             <title>NgOsmMap - Redirecting...</title>
-            <meta http-equiv="refresh" content="0; url=/ngmahesh/">
+            <meta http-equiv="refresh" content="0; url=./demo/">
           </head>
           <body>
             <p>Redirecting to demo...</p>
@@ -433,35 +300,11 @@ jobs:
           </html>
           EOF
 
-          # Copy demos if built
-          if [ -d "dist/ng-osm-map-demo" ]; then
-            if [ -d "dist/ng-osm-map-demo/browser" ]; then
-              cp -r dist/ng-osm-map-demo/browser/* gh-pages/ng-osm-map/demo/
-            else
-              cp -r dist/ng-osm-map-demo/* gh-pages/ng-osm-map/demo/
-            fi
-          fi
-
-          # Copy documentation
-          if [ -d "docs" ]; then
-            cp -r docs/* gh-pages/ng-osm-map/docs/
-          fi
-
-          echo "Final GitHub Pages structure:"
-          ls -la gh-pages/
-          echo "Files in root:"
-          ls -la gh-pages/ | head -10
-
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./gh-pages
-          enable_jekyll: false
-          allow_empty_commit: false
-          force_orphan: true
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
 
   # Notification job
   notify:

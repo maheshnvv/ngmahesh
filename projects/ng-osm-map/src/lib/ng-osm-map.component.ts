@@ -2,7 +2,6 @@ import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, OnChanges, S
 import { NgOsmMapDirective } from './directives/ng-osm-map.directive';
 import { LocationObject, PinObject, HighlightArea, MapOptions, MapClickEvent, SearchResult, PinDragEvent, AutocompleteSuggestion, TileLayerType, SelectedLocation, PinDeleteEvent } from './models/map-interfaces';
 
-// Angular OpenStreetMap component with search input directive support
 @Component({
   selector: 'ng-osm-map',
   standalone: true,
@@ -47,9 +46,9 @@ export class NgOsmMapComponent implements OnInit, OnDestroy, OnChanges {
   @Input() zoomInto?: LocationObject;
   @Input() highlightAreas: HighlightArea[] = [];
   @Input() mapOptions: MapOptions = {};
+  @Input() mapId?: string; // Unique identifier for this map instance
   @Input() height: number | string = 400;
   @Input() width: number | string = '100%';
-  @Input() mapId?: string;
 
   @Output() mapClick = new EventEmitter<MapClickEvent>();
   @Output() locationSelected = new EventEmitter<MapClickEvent>();
