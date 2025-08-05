@@ -1,0 +1,79 @@
+#!/bin/sh
+#
+# Commit message validation hook
+# This script validates that commit messages follow the required format
+#
+
+# Get the commit message
+commit_message_file="$1"
+commit_message=$(cat "$commit_message_file")
+
+# Define valid keywords that must be in brackets
+valid_keywords="fix|feat|feature|upgrade|major|breaking|docs|style|refactor|perf|test|chore"
+
+echo "🔍 Validating commit message format..."
+echo "Message: $commit_message"
+
+# Check if the commit message contains at least one valid keyword in brackets
+if ! echo "$commit_message" | grep -qE "\\[($valid_keywords)\\]"; then
+    echo ""
+    echo "❌ Commit message validation failed!"
+    echo ""
+    echo "Your commit message must include at least one of these keywords in brackets:"
+    echo ""
+    echo "  📦 Version Control Keywords:"
+    echo "    [fix]       - Bug fixes (patch version bump: 1.0.0 → 1.0.1)"
+    echo "    [feat]      - New features (minor version bump: 1.0.0 → 1.1.0)"
+    echo "    [feature]   - New features (minor version bump: 1.0.0 → 1.1.0)"
+    echo "    [upgrade]   - Breaking changes (major version bump: 1.0.0 → 2.0.0)"
+    echo "    [major]     - Breaking changes (major version bump: 1.0.0 → 2.0.0)"
+    echo "    [breaking]  - Breaking changes (major version bump: 1.0.0 → 2.0.0)"
+    echo ""
+    echo "  📝 Other Valid Keywords (patch version bump):"
+    echo "    [docs]      - Documentation changes"
+    echo "    [style]     - Code style changes (formatting, missing semi-colons, etc)"
+    echo "    [refactor]  - Code refactoring (no functionality change)"
+    echo "    [perf]      - Performance improvements"
+    echo "    [test]      - Adding or updating tests"
+    echo "    [chore]     - Maintenance tasks (updating dependencies, etc)"
+    echo ""
+    echo "  ✅ Valid Examples:"
+    echo "    '[feat] Add new map component feature'"
+    echo "    '[fix] Resolve marker positioning issue'"
+    echo "    '[major] Breaking API changes for v2.0'"
+    echo "    '[docs] Update installation instructions'"
+    echo "    '[feat][fix] Add feature and fix related bug'"
+    echo ""
+    echo "  ❌ Invalid Examples:"
+    echo "    'Add new feature' (missing brackets)"
+    echo "    '[added] new feature' (invalid keyword)"
+    echo "    'feat: add new feature' (wrong format)"
+    echo ""
+    echo "Multiple keywords are allowed: '[feat][fix] Add feature and fix bug'"
+    echo ""
+    exit 1
+fi
+
+# Additional validation: ensure brackets are properly formatted
+if echo "$commit_message" | grep -qE "\\[\\s*\\]"; then
+    echo "❌ Found empty brackets in commit message!"
+    echo "Brackets must contain valid keywords."
+    exit 1
+fi
+
+echo "✅ Commit message format is valid!"
+echo ""
+
+# Show what version bump will be triggered
+if echo "$commit_message" | grep -qE "\\[(upgrade|major|breaking)\\]"; then
+    echo "🚀 This commit will trigger a MAJOR version bump (breaking changes)"
+elif echo "$commit_message" | grep -qE "\\[(feat|feature)\\]"; then
+    echo "🚀 This commit will trigger a MINOR version bump (new features)"
+elif echo "$commit_message" | grep -qE "\\[(fix|perf)\\]"; then
+    echo "🚀 This commit will trigger a PATCH version bump (bug fixes/improvements)"
+else
+    echo "🚀 This commit will trigger a PATCH version bump (maintenance)"
+fi
+
+echo ""
+exit 0

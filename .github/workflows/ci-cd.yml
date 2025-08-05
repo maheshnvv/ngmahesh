@@ -46,8 +46,57 @@ env:
   NODE_VERSION: '18.x'
 
 jobs:
+  # Validate commit message format
+  validate-commit-message:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit message format
+        run: |
+          # Get the commit message
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_MSG="${{ github.event.pull_request.title }}"
+          else
+            COMMIT_MSG="${{ github.event.head_commit.message }}"
+          fi
+
+          echo "Validating commit message: $COMMIT_MSG"
+
+          # Check if commit message contains required keywords in brackets
+          VALID_KEYWORDS="(fix|feat|feature|upgrade|major|breaking|docs|style|refactor|perf|test|chore)"
+          
+          if ! echo "$COMMIT_MSG" | grep -qE "\\[$VALID_KEYWORDS\\]"; then
+            echo "❌ Commit message validation failed!"
+            echo ""
+            echo "Your commit message must include at least one of these keywords in brackets:"
+            echo "  [fix] - Bug fixes (patch version bump)"
+            echo "  [feat] or [feature] - New features (minor version bump)"
+            echo "  [upgrade] or [major] or [breaking] - Breaking changes (major version bump)"
+            echo "  [docs] - Documentation changes"
+            echo "  [style] - Code style changes"
+            echo "  [refactor] - Code refactoring"
+            echo "  [perf] - Performance improvements"
+            echo "  [test] - Test changes"
+            echo "  [chore] - Maintenance tasks"
+            echo ""
+            echo "Example: '[feat] Add new map component feature'"
+            echo "Example: '[fix] Resolve marker positioning issue'"
+            echo "Example: '[major] Breaking API changes for v2.0'"
+            echo ""
+            echo "Multiple keywords are allowed: '[feat][fix] Add feature and fix bug'"
+            exit 1
+          fi
+
+          echo "✅ Commit message format is valid!"
   # Detect changes and build matrix
   detect-changes:
+    needs: [validate-commit-message]
+    if: always() && (needs.validate-commit-message.result == 'success' || needs.validate-commit-message.result == 'skipped')
     runs-on: ubuntu-latest
     outputs:
       libraries: ${{ steps.changes.outputs.libraries }}
@@ -228,23 +277,70 @@ jobs:
           name: ${{ matrix.library }}-build
           path: dist/${{ matrix.library }}
 
-      - name: Determine version bump
+      - name: Get latest NPM version and determine version bump
         id: version
         run: |
+          # Get latest version from NPM
+          LIBRARY_NAME="@ngmahesh/${{ matrix.library }}"
+          echo "Checking latest version for: $LIBRARY_NAME"
+          
+          # Try to get the latest version from NPM
+          LATEST_VERSION=$(npm view "$LIBRARY_NAME" version 2>/dev/null || echo "0.0.0")
+          echo "Latest NPM version: $LATEST_VERSION"
+          
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./projects/${{ matrix.library }}/package.json').version")
+          echo "Current package.json version: $CURRENT_VERSION"
+          
+          # Use the higher version as base
+          if [ "$LATEST_VERSION" != "0.0.0" ]; then
+            # Compare versions and use the higher one
+            HIGHER_VERSION=$(printf '%s\n%s\n' "$LATEST_VERSION" "$CURRENT_VERSION" | sort -V | tail -n1)
+            if [ "$HIGHER_VERSION" = "$LATEST_VERSION" ]; then
+              echo "Using NPM version as base: $LATEST_VERSION"
+              BASE_VERSION="$LATEST_VERSION"
+            else
+              echo "Using package.json version as base: $CURRENT_VERSION"
+              BASE_VERSION="$CURRENT_VERSION"
+            fi
+          else
+            echo "Package not found on NPM, using package.json version: $CURRENT_VERSION"
+            BASE_VERSION="$CURRENT_VERSION"
+          fi
+          
+          # Update package.json with base version
+          cd projects/${{ matrix.library }}
+          npm version "$BASE_VERSION" --no-git-tag-version
+          cd ../..
+
           # Use manual input if available
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version_bump }}" ]; then
             BUMP_TYPE="${{ github.event.inputs.version_bump }}"
             echo "Using manual version bump: $BUMP_TYPE"
           else
-            # Determine version bump type based on commit messages or branch
+            # Determine version bump type based on commit messages with bracket keywords
             BUMP_TYPE="patch"
 
-            # Check commit messages for version hints
+            # Get commit message
             COMMIT_MSG="${{ github.event.head_commit.message }}"
-            if [[ "$COMMIT_MSG" == *"BREAKING CHANGE"* ]] || [[ "$COMMIT_MSG" == *"major:"* ]]; then
+            echo "Analyzing commit message: $COMMIT_MSG"
+
+            # Check for major version keywords in brackets
+            if echo "$COMMIT_MSG" | grep -qE "\\[(upgrade|major|breaking)\\]"; then
               BUMP_TYPE="major"
-            elif [[ "$COMMIT_MSG" == *"feat:"* ]] || [[ "$COMMIT_MSG" == *"feature:"* ]]; then
+              echo "Found major version keyword in brackets"
+            # Check for minor version keywords in brackets
+            elif echo "$COMMIT_MSG" | grep -qE "\\[(feat|feature)\\]"; then
               BUMP_TYPE="minor"
+              echo "Found minor version keyword in brackets"
+            # Check for patch version keywords in brackets
+            elif echo "$COMMIT_MSG" | grep -qE "\\[(fix|perf)\\]"; then
+              BUMP_TYPE="patch"
+              echo "Found patch version keyword in brackets"
+            # Default to patch for other keywords
+            else
+              BUMP_TYPE="patch"
+              echo "Using default patch version for other keywords"
             fi
 
             # Override for release branches
@@ -258,23 +354,29 @@ jobs:
           fi
 
           echo "bump-type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          echo "base-version=$BASE_VERSION" >> $GITHUB_OUTPUT
           echo "Version bump type: $BUMP_TYPE"
+          echo "Base version: $BASE_VERSION"
 
       - name: Bump version
         id: bump
         run: |
           cd projects/${{ matrix.library }}
 
-          # Get current version
+          # Get current version (should now be the base version from previous step)
           CURRENT_VERSION=$(node -p "require('./package.json').version")
-          echo "Current version: $CURRENT_VERSION"
+          echo "Current base version: $CURRENT_VERSION"
 
-          # Bump version
+          # Bump version based on the determined type
           NEW_VERSION=$(npm version ${{ steps.version.outputs.bump-type }} --no-git-tag-version)
           NEW_VERSION=${NEW_VERSION#v}  # Remove 'v' prefix
 
           echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "New version: $NEW_VERSION"
+          echo "Bumped version from $CURRENT_VERSION to $NEW_VERSION using ${{ steps.version.outputs.bump-type }} increment"
+
+          # Update the root workspace package.json if needed
+          cd ../..
+          echo "✅ Version bump completed: ${{ matrix.library }} v$NEW_VERSION"
 
       - name: Build library with new version
         run: npm run build ${{ matrix.library }}
@@ -306,27 +408,36 @@ jobs:
           body: |
             ## ${{ matrix.library }} v${{ steps.bump.outputs.new-version }}
 
-            ### Changes
-            - Auto-generated release from CI/CD pipeline
-            - See commit history for detailed changes
+            ### 🚀 Release Information
+            - **Version Type**: ${{ steps.version.outputs.bump-type }} release
+            - **Previous Version**: ${{ steps.version.outputs.base-version }}
+            - **New Version**: ${{ steps.bump.outputs.new-version }}
 
-            ### Installation
+            ### 📝 Changes
+            **Commit Message**: ${{ github.event.head_commit.message }}
+
+            ### 📦 Installation
             ```bash
             npm install @ngmahesh/${{ matrix.library }}@${{ steps.bump.outputs.new-version }}
             ```
 
-            ### Documentation
-            [View Documentation](https://maheshnvv.github.io/ngmahesh/docs/ng-osm-map)
+            ### 📚 Documentation
+            - [View Documentation](https://maheshnvv.github.io/ngmahesh/docs/${{ matrix.library }})
+            - [Try Live Demo](https://maheshnvv.github.io/ngmahesh/demo/${{ matrix.library }})
 
-            ### Demo
-            [Try Live Demo](https://maheshnvv.github.io/ngmahesh/demo/ng-osm-map)
+            ### 🔗 Links
+            - [NPM Package](https://www.npmjs.com/package/@ngmahesh/${{ matrix.library }})
+            - [GitHub Repository](https://github.com/${{ github.repository }})
+
+            ---
+            *This release was automatically generated by the CI/CD pipeline*
           draft: false
           prerelease: false
 
   # Build and deploy documentation
   deploy-docs:
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.docs-changed == 'true' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
+    needs: [validate-commit-message, detect-changes]
+    if: always() && (needs.validate-commit-message.result == 'success' || needs.validate-commit-message.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/release/'))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -465,19 +576,26 @@ jobs:
 
   # Notification job
   notify:
-    needs: [detect-changes, build-and-test, publish-libraries, deploy-docs]
+    needs: [validate-commit-message, detect-changes, build-and-test, publish-libraries, deploy-docs]
     if: always()
     runs-on: ubuntu-latest
 
     steps:
       - name: Notify on success
-        if: needs.publish-libraries.result == 'success' || needs.deploy-docs.result == 'success'
+        if: (needs.publish-libraries.result == 'success' || needs.deploy-docs.result == 'success') && (needs.validate-commit-message.result == 'success' || needs.validate-commit-message.result == 'skipped')
         run: |
           echo "✅ CI/CD Pipeline completed successfully!"
           echo "Libraries published: ${{ needs.detect-changes.outputs.libraries }}"
           echo "Docs deployed: ${{ needs.detect-changes.outputs.docs-changed }}"
 
-      - name: Notify on failure
+      - name: Notify on validation failure
+        if: needs.validate-commit-message.result == 'failure'
+        run: |
+          echo "❌ Commit message validation failed!"
+          echo "Please ensure your commit message includes proper keywords in brackets."
+          exit 1
+
+      - name: Notify on pipeline failure
         if: needs.build-and-test.result == 'failure' || needs.publish-libraries.result == 'failure' || needs.deploy-docs.result == 'failure'
         run: |
           echo "❌ CI/CD Pipeline failed!"

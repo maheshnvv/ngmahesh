@@ -15,5 +15,5 @@ export * from './lib/services/autocomplete.service';
 export * from './lib/services/tile-layer.service';
 export * from './lib/services/ng-osm-search-connection.service';
 
-// Models and interfaces -
+// Models and interfaces
 export * from './lib/models/map-interfaces';

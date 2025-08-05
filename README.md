@@ -27,6 +27,10 @@ Visit our [documentation site](https://maheshnvv.github.io/ngmahesh) to explore 
 git clone https://github.com/ngmahesh/ng-libraries.git
 cd ng-libraries
 npm install
+
+# Install git hooks for commit message validation (recommended)
+npm run install-hooks        # Linux/Mac
+npm run install-hooks:win    # Windows
 ```
 
 ### Building Libraries
@@ -47,9 +51,32 @@ npm start
 npm run demo:ng-osm-map
 ```
 
-## 🚀 CI/CD Setup
+## 🚀 CI/CD & Contributing
 
-This repository uses GitHub Actions for automated building, testing, and publishing. Here's how to set it up:
+This project uses an automated CI/CD pipeline with commit message-based versioning. 
+
+### Commit Message Format
+All commits must include keywords in brackets to determine version bumps:
+
+- `[fix]` - Bug fixes (patch: 1.0.0 → 1.0.1)
+- `[feat]` - New features (minor: 1.0.0 → 1.1.0)
+- `[major]` - Breaking changes (major: 1.0.0 → 2.0.0)
+- `[docs]`, `[chore]`, `[style]`, etc. - Other changes (patch)
+
+**Examples:**
+```bash
+git commit -m "[feat] Add new map component feature"
+git commit -m "[fix] Resolve marker positioning issue"
+git commit -m "[major] Breaking API changes for v2.0"
+```
+
+For complete CI/CD documentation, see [CI-CD-PIPELINE.md](./CI-CD-PIPELINE.md)
+
+## 🚀 Publishing Libraries
+
+### NPM Organization Setup
+1. Create an account on [npmjs.com](https://www.npmjs.com) if you don't have one.
+2. Log in and create an organization (if needed) for scoping packages.
 
 ### Required GitHub Secrets
 

@@ -11,7 +11,11 @@
     "watch": "ng build --watch --configuration development",
     "lint": "ng lint",
     "publish:lib": "cd dist/ng-osm-map && npm publish --access public",
-    "install-local": "npm link ./dist/ng-osm-map"
+    "install-local": "npm link ./dist/ng-osm-map",
+    "install-hooks": "bash install-git-hooks.sh",
+    "install-hooks:win": "install-git-hooks.bat",
+    "test-commit": "bash test-commit-message.sh",
+    "validate-commit": "node -e \"const msg=process.argv[1]; const valid=/\\[(fix|feat|feature|upgrade|major|breaking|docs|style|refactor|perf|test|chore)\\]/.test(msg); if(!valid){console.error('❌ Invalid commit message format. Use [keyword] format.'); process.exit(1);} console.log('✅ Valid commit message');\""
   },
   "private": true,
   "dependencies": {
@@ -23,6 +27,7 @@
     "@angular/platform-browser": "^18.2.0",
     "@angular/platform-browser-dynamic": "^18.2.0",
     "@angular/router": "^18.2.0",
+    "@ngmahesh/ng-osm-map": "^1.1.0",
     "@types/leaflet": "^1.9.20",
     "leaflet": "^1.9.4",
     "rxjs": "~7.8.0",
