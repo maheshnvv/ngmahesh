@@ -41,6 +41,21 @@ export class AppComponent {
   mapOptions = {
     zoom: 5,
     enableClickSelect: true,
+    selection: {
+      multiSelect: true,
+      maxSelections: 5,
+      createPinsForSelections: true,
+      selectionPin: {
+        color: '#9C27B0',
+        title: 'Selected Location',
+        content: '<div><strong>Selected Location</strong><br>Click to deselect</div>'
+      }
+    },
+    // Pre-selected locations that won't trigger selection events
+    preSelectedLocations: [
+      { latitude: 50.0755, longitude: 14.4378 }, // Prague
+      { latitude: 47.4979, longitude: 19.0402 }  // Budapest
+    ],
     search: {
       enabled: true,
       placeholder: 'Search European cities...',

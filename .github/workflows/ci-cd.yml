@@ -69,7 +69,7 @@ jobs:
 
           # Check if commit message contains required keywords in brackets
           VALID_KEYWORDS="(fix|feat|feature|upgrade|major|breaking|docs|style|refactor|perf|test|chore)"
-          
+
           if ! echo "$COMMIT_MSG" | grep -qE "\\[$VALID_KEYWORDS\\]"; then
             echo "❌ Commit message validation failed!"
             echo ""
@@ -283,15 +283,15 @@ jobs:
           # Get latest version from NPM
           LIBRARY_NAME="@ngmahesh/${{ matrix.library }}"
           echo "Checking latest version for: $LIBRARY_NAME"
-          
+
           # Try to get the latest version from NPM
           LATEST_VERSION=$(npm view "$LIBRARY_NAME" version 2>/dev/null || echo "0.0.0")
           echo "Latest NPM version: $LATEST_VERSION"
-          
+
           # Get current version from package.json
           CURRENT_VERSION=$(node -p "require('./projects/${{ matrix.library }}/package.json').version")
           echo "Current package.json version: $CURRENT_VERSION"
-          
+
           # Use the higher version as base
           if [ "$LATEST_VERSION" != "0.0.0" ]; then
             # Compare versions and use the higher one
@@ -307,7 +307,7 @@ jobs:
             echo "Package not found on NPM, using package.json version: $CURRENT_VERSION"
             BASE_VERSION="$CURRENT_VERSION"
           fi
-          
+
           # Update package.json with base version
           cd projects/${{ matrix.library }}
           npm version "$BASE_VERSION" --no-git-tag-version

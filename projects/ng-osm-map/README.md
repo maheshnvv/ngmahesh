@@ -72,6 +72,24 @@ Run `ng build ng-osm-map` to build the project. The build artifacts will be stor
 
 After building your library with `ng build ng-osm-map`, go to the dist folder `cd dist/ng-osm-map` and run `npm publish`.
 
+## SelectedLocation Interface
+
+When handling selection events, address information is accessed through the `addressInfo.address` structure:
+
+```typescript
+onSelectionChanged(selections: SelectedLocation[]) {
+  selections.forEach(selection => {
+    // Access address information via addressInfo.address
+    const city = selection.addressInfo?.address?.city;
+    const state = selection.addressInfo?.address?.state;
+    const country = selection.addressInfo?.address?.country;
+    const zipcode = selection.addressInfo?.address?.postcode;
+    
+    console.log(`Selected: ${city}, ${state}, ${country} ${zipcode}`);
+  });
+}
+```
+
 ## 🤝 Contributing
 
 1. Fork the [repository](https://github.com/maheshnvv/ngmahesh)

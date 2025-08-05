@@ -13,7 +13,7 @@ import { LocationObject, PinObject, HighlightArea, MapOptions, MapClickEvent, Se
       [pins]="pins"
       [zoomInto]="zoomInto"
       [highlightAreas]="highlightAreas"
-      [mapOptions]="mapOptions"
+      [mapOptions]="effectiveMapOptions"
       [mapId]="mapId"
       (mapClick)="onMapClick($event)"
       (locationSelected)="onLocationSelected($event)"
@@ -47,8 +47,18 @@ export class NgOsmMapComponent implements OnInit, OnDestroy, OnChanges {
   @Input() highlightAreas: HighlightArea[] = [];
   @Input() mapOptions: MapOptions = {};
   @Input() mapId?: string; // Unique identifier for this map instance
+  @Input() preSelectedLocations: LocationObject[] = []; // Pre-selected locations that won't trigger selection events
   @Input() height: number | string = 400;
   @Input() width: number | string = '100%';
+
+  // Backward compatibility for single selectedLocation
+  @Input() set selectedLocation(location: LocationObject | undefined) {
+    if (location) {
+      this.preSelectedLocations = [location];
+    } else {
+      this.preSelectedLocations = [];
+    }
+  }
 
   @Output() mapClick = new EventEmitter<MapClickEvent>();
   @Output() locationSelected = new EventEmitter<MapClickEvent>();
@@ -64,6 +74,13 @@ export class NgOsmMapComponent implements OnInit, OnDestroy, OnChanges {
 
   get mapWidth(): string {
     return typeof this.width === 'number' ? `${this.width}px` : this.width;
+  }
+
+  get effectiveMapOptions(): MapOptions {
+    return {
+      ...this.mapOptions,
+      preSelectedLocations: this.preSelectedLocations
+    };
   }
 
   ngOnInit(): void {
@@ -233,5 +250,13 @@ export class NgOsmMapComponent implements OnInit, OnDestroy, OnChanges {
     if (this.mapDirective) {
       (this.mapDirective as any).deletePinByIndex(pinIndex, 'user-action');
     }
+  }
+
+  /**
+   * Set pre-selected locations programmatically without triggering selection events
+   */
+  setPreSelectedLocations(locations: LocationObject[]): void {
+    this.preSelectedLocations = locations;
+    this.mapDirective?.setPreSelectedLocations(locations);
   }
 }

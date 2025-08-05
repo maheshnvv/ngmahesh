@@ -132,6 +132,8 @@ export interface MapOptions {
   searchInput?: SearchInputConfig;
   /** Default draggable state for pins */
   defaultPinsDraggable?: boolean;
+  /** Pre-selected locations that will be marked as selected without triggering selection events */
+  preSelectedLocations?: LocationObject[];
 }
 
 /**

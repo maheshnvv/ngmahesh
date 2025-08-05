@@ -120,6 +120,10 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
     if (changes['zoomInto']) {
       this.handleZoomInto();
     }
+
+    if (changes['mapOptions']) {
+      this.handleMapOptionsChange(changes['mapOptions']);
+    }
   }
 
   private initializeMap(): void {
@@ -173,6 +177,9 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
       // Add pins and areas
       this.updatePins();
       this.updateHighlightAreas();
+
+      // Initialize pre-selected locations
+      this.initializePreSelectedLocations();
     });
   }
 
@@ -1653,9 +1660,129 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
   }
 
   /**
+   * Set pre-selected locations programmatically without triggering selection events
+   */
+  setPreSelectedLocations(locations: LocationObject[]): void {
+    // Update the mapOptions
+    this.mapOptions = {
+      ...this.mapOptions,
+      preSelectedLocations: locations
+    };
+
+    // Initialize the pre-selected locations
+    this.initializePreSelectedLocations();
+  }
+
+  /**
    * Clear the coordinates cache (useful for testing or if locations have changed)
    */
   public clearLocationCache(): void {
     this.coordinatesCache.clear();
+  }
+
+  private handleMapOptionsChange(change: any): void {
+    if (!this.map) return;
+
+    const currentOptions = change.currentValue || {};
+    const previousOptions = change.previousValue || {};
+
+    // Check if preSelectedLocations changed
+    if (this.hasPreSelectedLocationsChanged(currentOptions, previousOptions)) {
+      this.initializePreSelectedLocations();
+    }
+  }
+
+  private hasPreSelectedLocationsChanged(current: MapOptions, previous: MapOptions): boolean {
+    const currentPreSelected = current.preSelectedLocations || [];
+    const previousPreSelected = previous.preSelectedLocations || [];
+
+    if (currentPreSelected.length !== previousPreSelected.length) {
+      return true;
+    }
+
+    return currentPreSelected.some((current, index) => {
+      const previous = previousPreSelected[index];
+      return current.latitude !== previous.latitude ||
+             current.longitude !== previous.longitude ||
+             current.address !== previous.address;
+    });
+  }
+
+  private initializePreSelectedLocations(): void {
+    const preSelectedLocations = this.mapOptions.preSelectedLocations || [];
+
+    if (preSelectedLocations.length === 0) {
+      return;
+    }
+
+    // Clear existing pre-selected locations (those with 'pre-selected' prefix)
+    this.selectedLocations = this.selectedLocations.filter(sel => !sel.id.startsWith('pre-selected_'));
+
+    const selectionOptions = this.mapOptions.selection;
+
+    // Process each pre-selected location
+    preSelectedLocations.forEach((location, index) => {
+      this.geocodingService.resolveLocation(location).subscribe(coords => {
+        if (!coords) return;
+
+        const selectedLocation: SelectedLocation = {
+          id: `pre-selected_${index}_${Date.now()}`,
+          coordinates: {
+            latitude: coords.lat,
+            longitude: coords.lng
+          },
+          selectedAt: new Date()
+        };
+
+        // Add to selections array without triggering events
+        if (selectionOptions?.multiSelect) {
+          // Respect max selections limit
+          if (selectionOptions.maxSelections && selectionOptions.maxSelections > 0) {
+            const currentNonPreSelected = this.selectedLocations.filter(sel => !sel.id.startsWith('pre-selected_'));
+            if (currentNonPreSelected.length + this.selectedLocations.filter(sel => sel.id.startsWith('pre-selected_')).length >= selectionOptions.maxSelections) {
+              // Remove oldest non-pre-selected selection
+              const oldestNonPreSelected = currentNonPreSelected.sort((a, b) => a.selectedAt.getTime() - b.selectedAt.getTime())[0];
+              if (oldestNonPreSelected) {
+                this.selectedLocations = this.selectedLocations.filter(sel => sel.id !== oldestNonPreSelected.id);
+              }
+            }
+          }
+          this.selectedLocations.push(selectedLocation);
+        } else {
+          // Single select: clear other non-pre-selected selections
+          this.selectedLocations = [
+            ...this.selectedLocations.filter(sel => sel.id.startsWith('pre-selected_')),
+            selectedLocation
+          ];
+        }
+
+        // Create selection pin if configured
+        if (selectionOptions?.createPinsForSelections) {
+          this.createPreSelectedPin(selectedLocation, coords);
+        }
+
+        // Don't emit selectionChanged event for pre-selected locations
+        // This is the key difference - we update the internal state but don't notify consumers
+      });
+    });
+  }
+
+  private createPreSelectedPin(selectedLocation: SelectedLocation, coords: { lat: number; lng: number }): void {
+    const selectionOptions = this.mapOptions.selection;
+    const selectionPinConfig = selectionOptions?.selectionPin || {};
+
+    const pinConfig: PinObject = {
+      location: { latitude: coords.lat, longitude: coords.lng },
+      color: selectionPinConfig.color || '#4CAF50',
+      title: selectionPinConfig.title || 'Pre-selected Location',
+      content: selectionPinConfig.content || `<div>Pre-selected at ${selectedLocation.selectedAt.toLocaleString()}</div>`,
+      draggable: selectionPinConfig.draggable || false,
+      data: { selectionId: selectedLocation.id, isPreSelected: true }
+    };
+
+    // Add the pin to the pins array and update the map
+    this.pins.push(pinConfig);
+    this.addPin(pinConfig);
+    selectedLocation.pinIndex = this.pins.length - 1;
   }
 }

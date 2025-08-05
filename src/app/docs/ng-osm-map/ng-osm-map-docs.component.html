@@ -115,6 +115,40 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
   addressInfo?: AddressInfo;
 {{ '}' }}</code></pre>
       </div>
+
+      <h3>SelectedLocation</h3>
+      <div class="code-block">
+        <pre><code>interface SelectedLocation {{ '{' }}
+  id: string;                    // Unique identifier for the selection
+  coordinates: {{ '{' }}
+    latitude: number;
+    longitude: number;
+  {{ '}' }};
+  addressInfo?: {{ '{' }}              // Address information (if available)
+    display_name?: string;
+    address?: {{ '{' }}
+      house_number?: string;
+      road?: string;
+      city?: string;           // Access city via addressInfo.address.city
+      state?: string;          // Access state via addressInfo.address.state
+      postcode?: string;       // Access zipcode via addressInfo.address.postcode
+      country?: string;        // Access country via addressInfo.address.country
+    {{ '}' }};
+  {{ '}' }};
+  pinIndex?: number;           // Associated pin index (if a pin was created)
+  selectedAt: Date;            // Timestamp when selected
+{{ '}' }}</code></pre>
+      </div>
+
+      <p><strong>Note:</strong> Address information (city, state, country, zipcode) is accessed through the
+      <code>addressInfo.address</code> object rather than direct properties. For example:</p>
+      <div class="code-block">
+        <pre><code>// Accessing address information
+const city = selection.addressInfo?.address?.city;
+const state = selection.addressInfo?.address?.state;
+const country = selection.addressInfo?.address?.country;
+const zipcode = selection.addressInfo?.address?.postcode;</code></pre>
+      </div>
     </section>
 
     <section class="docs-section">
@@ -165,7 +199,39 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
       <p>Integrated search functionality with autocomplete suggestions.</p>
 
       <h3>Selection System</h3>
-      <p>Advanced selection system supporting both single and multi-select modes.</p>
+      <p>Advanced selection system supporting both single and multi-select modes with pre-selected locations.</p>
+
+      <div class="code-block">
+        <pre><code>// Configure selection options
+mapOptions: MapOptions = {{ '{' }}
+  enableClickSelect: true,
+  selection: {{ '{' }}
+    multiSelect: true,        // Enable multi-selection
+    maxSelections: 5,         // Limit to 5 selections
+    createPinsForSelections: true,
+    selectionPin: {{ '{' }}         // Custom pin for selections
+      color: '#4CAF50',
+      title: 'Selected Location'
+    {{ '}' }}
+  {{ '}' }},
+  preSelectedLocations: [     // Pre-selected locations (no events)
+    {{ '{' }} latitude: 50.0755, longitude: 14.4378 {{ '}' }}, // Prague
+    {{ '{' }} latitude: 47.4979, longitude: 19.0402 {{ '}' }}  // Budapest
+  ]
+{{ '}' }};
+
+// Handle selection changes
+onSelectionChanged(selections: SelectedLocation[]) {{ '{' }}
+  selections.forEach(selection => {{ '{' }}
+    console.log('Selected:', selection.id);
+
+    // Access address information
+    const city = selection.addressInfo?.address?.city;
+    const country = selection.addressInfo?.address?.country;
+    console.log(`Location: ${{ '{' }}city{{ '}' }}, ${{ '{' }}country{{ '}' }}`);
+  {{ '}' }});
+{{ '}' }}</code></pre>
+      </div>
 
       <h3>Multiple Tile Layers</h3>
       <p>Support for various map tile providers including OpenStreetMap, satellite imagery, and custom themes.</p>
