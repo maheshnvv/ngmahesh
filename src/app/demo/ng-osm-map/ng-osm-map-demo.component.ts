@@ -2,8 +2,8 @@ import { Component, ViewChild, TemplateRef, ViewContainerRef, AfterViewInit } fr
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { NgOsmMapComponent, PinObject, LocationObject, HighlightArea, MapClickEvent, SearchResult, PinDragEvent, AutocompleteSuggestion,
-   AutocompleteSearchContext, TileLayerType, SelectedLocation, PinDeleteEvent, PinPopupContext } from '@ngmahesh/ng-osm-map';
-import { NgOsmSearchInputDirective } from '@ngmahesh/ng-osm-map';
+   AutocompleteSearchContext, TileLayerType, SelectedLocation, PinDeleteEvent, PinPopupContext } from '../../../../projects/ng-osm-map/src/public-api';
+import { NgOsmSearchInputDirective } from '../../../../projects/ng-osm-map/src/public-api';
 
 @Component({
   selector: 'app-ng-osm-map-demo',
@@ -157,6 +157,18 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
   selectedLocations: SelectedLocation[] = [];
   deleteHistory: PinDeleteEvent[] = [];
 
+  // Pre-selected locations for demonstrating pre-selection functionality
+  preSelectedLocations: LocationObject[] = [];
+
+  // Available demo locations for pre-selection
+  demoLocations: { name: string; location: LocationObject }[] = [
+    { name: 'New York City', location: { latitude: 40.7128, longitude: -74.0060 } },
+    { name: 'London', location: { latitude: 51.5074, longitude: -0.1278 } },
+    { name: 'Tokyo', location: { latitude: 35.6762, longitude: 139.6503 } },
+    { name: 'Paris', location: { latitude: 48.8566, longitude: 2.3522 } },
+    { name: 'Sydney', location: { latitude: -33.8688, longitude: 151.2093 } }
+  ];
+
   // Track special pins
   searchResultPinIndex: number = -1; // Index of the current search result pin
   selectedLocationPinIndex: number = -1; // Index of pin created from location selection
@@ -203,7 +215,33 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
     this.mapOptions = { ...this.mapOptions, zoom: 2 };
   }
 
-  // New event handlers
+  // Pre-selection demo methods
+  setPreSelectedLocation(locationName: string) {
+    const demoLocation = this.demoLocations.find(loc => loc.name === locationName);
+    if (demoLocation) {
+      this.preSelectedLocations = [demoLocation.location];
+    }
+  }
+
+  setMultiplePreSelectedLocations() {
+    // Select first 3 locations for multi-select demo
+    this.preSelectedLocations = this.demoLocations.slice(0, 3).map(loc => loc.location);
+  }
+
+  clearPreSelectedLocations() {
+    this.preSelectedLocations = [];
+  }
+
+  getPreSelectedLocationNames(): string {
+    return this.preSelectedLocations.map((loc, i) => {
+      const demoLocation = this.demoLocations.find(demo => 
+        demo.location.latitude === loc.latitude && demo.location.longitude === loc.longitude
+      );
+      return demoLocation?.name || `Location ${i+1}`;
+    }).join(', ');
+  }
+
+  // Event handlers
   onMapClick(event: MapClickEvent) {
     console.log('Map clicked:', event);
     this.lastClickedLocation = event;

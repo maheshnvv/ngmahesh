@@ -69,6 +69,35 @@
       <p class="selection-mode-info">{{ getSelectionModeDescription() }}</p>
     </section>
 
+    <!-- Pre-selection Demo Controls -->
+    <section class="pre-selection-controls">
+      <h2>🎯 Pre-Selection Demo</h2>
+      <p class="info-text">Pre-selected locations don't trigger selectionChanged events and are perfect for initializing map state.</p>
+      <div class="button-group">
+        <button class="btn btn-primary" (click)="setPreSelectedLocation('New York City')">
+          🗽 Pre-select NYC
+        </button>
+        <button class="btn btn-primary" (click)="setPreSelectedLocation('London')">
+          🇬🇧 Pre-select London
+        </button>
+        <button class="btn btn-primary" (click)="setPreSelectedLocation('Tokyo')">
+          🇯🇵 Pre-select Tokyo
+        </button>
+        <button class="btn btn-success" (click)="setMultiplePreSelectedLocations()">
+          🌍 Pre-select Multiple (NYC, London, Tokyo)
+        </button>
+        <button class="btn btn-secondary" (click)="clearPreSelectedLocations()">
+          🧹 Clear Pre-selections
+        </button>
+      </div>
+      <p class="pre-selection-info">
+        Current pre-selections: {{ preSelectedLocations.length }}
+        <span *ngIf="preSelectedLocations.length > 0">
+          ({{ getPreSelectedLocationNames() }})
+        </span>
+      </p>
+    </section>
+
     <!-- Tile Layer Controls -->
     <section class="tile-layer-controls">
       <h2>🗺️ Map Layers</h2>
@@ -181,6 +210,7 @@
         [zoomInto]="centerLocation"
         [highlightAreas]="highlightAreas"
         [mapOptions]="mapOptions"
+        [preSelectedLocations]="preSelectedLocations"
         [height]="400"
         [width]="'100%'"
         (mapClick)="onMapClick($event)"
