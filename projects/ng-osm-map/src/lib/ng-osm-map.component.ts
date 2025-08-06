@@ -13,7 +13,8 @@ import { LocationObject, PinObject, HighlightArea, MapOptions, MapClickEvent, Se
       [pins]="pins"
       [zoomInto]="zoomInto"
       [highlightAreas]="highlightAreas"
-      [mapOptions]="effectiveMapOptions"
+      [mapOptions]="mapOptions"
+      [preSelectedLocations]="preSelectedLocations"
       [mapId]="mapId"
       (mapClick)="onMapClick($event)"
       (locationSelected)="onLocationSelected($event)"
@@ -74,13 +75,6 @@ export class NgOsmMapComponent implements OnInit, OnDestroy, OnChanges {
 
   get mapWidth(): string {
     return typeof this.width === 'number' ? `${this.width}px` : this.width;
-  }
-
-  get effectiveMapOptions(): MapOptions {
-    return {
-      ...this.mapOptions,
-      preSelectedLocations: this.preSelectedLocations
-    };
   }
 
   ngOnInit(): void {
@@ -257,6 +251,5 @@ export class NgOsmMapComponent implements OnInit, OnDestroy, OnChanges {
    */
   setPreSelectedLocations(locations: LocationObject[]): void {
     this.preSelectedLocations = locations;
-    this.mapDirective?.setPreSelectedLocations(locations);
   }
 }

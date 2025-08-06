@@ -37,6 +37,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
   @Input() highlightAreas: HighlightArea[] = [];
   @Input() mapOptions: MapOptions = {};
   @Input() mapId?: string; // Unique identifier for this map instance;
+  @Input() preSelectedLocations: LocationObject[] = [];
 
   @Output() mapClick = new EventEmitter<MapClickEvent>();
   @Output() locationSelected = new EventEmitter<MapClickEvent>();
@@ -122,7 +123,11 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
     }
 
     if (changes['mapOptions']) {
-      this.handleMapOptionsChange(changes['mapOptions']);
+      // Handle any map options changes if needed
+    }
+
+    if (changes['preSelectedLocations']) {
+      this.handlePreSelectedLocationsChange();
     }
   }
 
@@ -179,7 +184,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
       this.updateHighlightAreas();
 
       // Initialize pre-selected locations
-      this.initializePreSelectedLocations();
+      this.handlePreSelectedLocationsChange();
     });
   }
 
@@ -1392,10 +1397,10 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
   /**
    * Handle location selection with multi-select support
    * @param clickEvent The map click event
-   * @param source The source of the selection ('map-click' | 'search-result')
+   * @param source The source of the selection ('map-click' | 'search-result' | 'pre-selected')
    * @param customPinConfig Custom pin configuration for this selection
    */
-  private handleLocationSelection(clickEvent: MapClickEvent, source: 'map-click' | 'search-result' = 'map-click', customPinConfig?: Partial<PinObject>): void {
+  private handleLocationSelection(clickEvent: MapClickEvent, source: 'map-click' | 'search-result' | 'pre-selected' = 'map-click', customPinConfig?: Partial<PinObject>): void {
     const selectionOptions = this.mapOptions.selection;
 
     if (!selectionOptions) {
@@ -1435,6 +1440,10 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
 
       // Add the new search selection
       this.selectedLocations.unshift(selectedLocation); // Add at beginning for priority
+    } else if (source === 'pre-selected') {
+      // Pre-selected locations - just add them without removing others
+      // In single-select mode, they should be cleared before adding new ones
+      this.selectedLocations.push(selectedLocation);
     } else {
       // Map-click selection
       if (!selectionOptions.multiSelect) {
@@ -1507,10 +1516,12 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
       this.updatePins();
     }
 
-    // Emit selection change
-    this.ngZone.run(() => {
-      this.selectionChanged.emit([...this.selectedLocations]);
-    });
+    // Emit selection change only if NOT pre-selected
+    if (source !== 'pre-selected') {
+      this.ngZone.run(() => {
+        this.selectionChanged.emit([...this.selectedLocations]);
+      });
+    }
 
     // Update external search input if enabled
     this.updateExternalSearchInputFromSelection();
@@ -1660,17 +1671,67 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
   }
 
   /**
-   * Set pre-selected locations programmatically without triggering selection events
+   * Handle changes to pre-selected locations input
    */
-  setPreSelectedLocations(locations: LocationObject[]): void {
-    // Update the mapOptions
-    this.mapOptions = {
-      ...this.mapOptions,
-      preSelectedLocations: locations
-    };
+  private handlePreSelectedLocationsChange(): void {
+    // Clear existing pre-selected locations
+    this.clearPreSelectedLocations();
 
-    // Initialize the pre-selected locations
-    this.initializePreSelectedLocations();
+    if (!this.preSelectedLocations || this.preSelectedLocations.length === 0) {
+      return;
+    }
+
+    const selectionOptions = this.mapOptions.selection;
+    if (!selectionOptions) {
+      return; // No selection configuration
+    }
+
+    // In single-select mode, only process the first location
+    const locationsToProcess = selectionOptions.multiSelect 
+      ? this.preSelectedLocations 
+      : this.preSelectedLocations.slice(0, 1);
+
+    // Process each location
+    locationsToProcess.forEach(location => {
+      this.geocodingService.resolveLocation(location).subscribe(coords => {
+        if (coords) {
+          // Get address info via reverse geocoding
+          this.geocodingService.reverseGeocode(coords.lat, coords.lng).subscribe(displayName => {
+            // Create a MapClickEvent-like object to reuse existing selection logic
+            const clickEvent: MapClickEvent = {
+              coordinates: {
+                latitude: coords.lat,
+                longitude: coords.lng
+              },
+              addressInfo: displayName ? {
+                display_name: displayName,
+                address: {} // Basic address info
+              } : undefined
+            };
+
+            // Use existing selection logic with pre-selected source
+            this.handleLocationSelection(clickEvent, 'pre-selected');
+          });
+        }
+      });
+    });
+  }
+
+  /**
+   * Clear only pre-selected locations
+   */
+  private clearPreSelectedLocations(): void {
+    // Remove only pre-selected locations, keep user selections
+    const preSelectedSelections = this.selectedLocations.filter(sel => sel.id.startsWith('pre-selected_'));
+    
+    preSelectedSelections.forEach(selection => {
+      if (selection.pinIndex !== undefined) {
+        this.deletePinByIndex(selection.pinIndex, 'programmatic');
+      }
+    });
+
+    // Remove pre-selected selections from the array
+    this.selectedLocations = this.selectedLocations.filter(sel => !sel.id.startsWith('pre-selected_'));
   }
 
   /**
@@ -1680,109 +1741,4 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
     this.coordinatesCache.clear();
   }
 
-  private handleMapOptionsChange(change: any): void {
-    if (!this.map) return;
-
-    const currentOptions = change.currentValue || {};
-    const previousOptions = change.previousValue || {};
-
-    // Check if preSelectedLocations changed
-    if (this.hasPreSelectedLocationsChanged(currentOptions, previousOptions)) {
-      this.initializePreSelectedLocations();
-    }
-  }
-
-  private hasPreSelectedLocationsChanged(current: MapOptions, previous: MapOptions): boolean {
-    const currentPreSelected = current.preSelectedLocations || [];
-    const previousPreSelected = previous.preSelectedLocations || [];
-
-    if (currentPreSelected.length !== previousPreSelected.length) {
-      return true;
-    }
-
-    return currentPreSelected.some((current, index) => {
-      const previous = previousPreSelected[index];
-      return current.latitude !== previous.latitude ||
-             current.longitude !== previous.longitude ||
-             current.address !== previous.address;
-    });
-  }
-
-  private initializePreSelectedLocations(): void {
-    const preSelectedLocations = this.mapOptions.preSelectedLocations || [];
-
-    if (preSelectedLocations.length === 0) {
-      return;
-    }
-
-    // Clear existing pre-selected locations (those with 'pre-selected' prefix)
-    this.selectedLocations = this.selectedLocations.filter(sel => !sel.id.startsWith('pre-selected_'));
-
-    const selectionOptions = this.mapOptions.selection;
-
-    // Process each pre-selected location
-    preSelectedLocations.forEach((location, index) => {
-      this.geocodingService.resolveLocation(location).subscribe(coords => {
-        if (!coords) return;
-
-        const selectedLocation: SelectedLocation = {
-          id: `pre-selected_${index}_${Date.now()}`,
-          coordinates: {
-            latitude: coords.lat,
-            longitude: coords.lng
-          },
-          selectedAt: new Date()
-        };
-
-        // Add to selections array without triggering events
-        if (selectionOptions?.multiSelect) {
-          // Respect max selections limit
-          if (selectionOptions.maxSelections && selectionOptions.maxSelections > 0) {
-            const currentNonPreSelected = this.selectedLocations.filter(sel => !sel.id.startsWith('pre-selected_'));
-            if (currentNonPreSelected.length + this.selectedLocations.filter(sel => sel.id.startsWith('pre-selected_')).length >= selectionOptions.maxSelections) {
-              // Remove oldest non-pre-selected selection
-              const oldestNonPreSelected = currentNonPreSelected.sort((a, b) => a.selectedAt.getTime() - b.selectedAt.getTime())[0];
-              if (oldestNonPreSelected) {
-                this.selectedLocations = this.selectedLocations.filter(sel => sel.id !== oldestNonPreSelected.id);
-              }
-            }
-          }
-          this.selectedLocations.push(selectedLocation);
-        } else {
-          // Single select: clear other non-pre-selected selections
-          this.selectedLocations = [
-            ...this.selectedLocations.filter(sel => sel.id.startsWith('pre-selected_')),
-            selectedLocation
-          ];
-        }
-
-        // Create selection pin if configured
-        if (selectionOptions?.createPinsForSelections) {
-          this.createPreSelectedPin(selectedLocation, coords);
-        }
-
-        // Don't emit selectionChanged event for pre-selected locations
-        // This is the key difference - we update the internal state but don't notify consumers
-      });
-    });
-  }
-
-  private createPreSelectedPin(selectedLocation: SelectedLocation, coords: { lat: number; lng: number }): void {
-    const selectionOptions = this.mapOptions.selection;
-    const selectionPinConfig = selectionOptions?.selectionPin || {};
-
-    const pinConfig: PinObject = {
-      location: { latitude: coords.lat, longitude: coords.lng },
-      color: selectionPinConfig.color || '#4CAF50',
-      title: selectionPinConfig.title || 'Pre-selected Location',
-      content: selectionPinConfig.content || `<div>Pre-selected at ${selectedLocation.selectedAt.toLocaleString()}</div>`,
-      draggable: selectionPinConfig.draggable || false,
-      data: { selectionId: selectedLocation.id, isPreSelected: true }
-    };
-
-    // Add the pin to the pins array and update the map
-    this.pins.push(pinConfig);
-    this.addPin(pinConfig);
-    selectedLocation.pinIndex = this.pins.length - 1;
-  }
 }
