@@ -126,6 +126,14 @@ export class NgOsmMapComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   /**
+   * Get the underlying NgOsmMapDirective instance
+   * This can be used for direct access to directive methods like zoomToSelection
+   */
+  getDirective(): NgOsmMapDirective | undefined {
+    return this.mapDirective;
+  }
+
+  /**
    * Fit map bounds to show all pins and areas
    */
   fitBounds(): void {
@@ -251,5 +259,13 @@ export class NgOsmMapComponent implements OnInit, OnDestroy, OnChanges {
    */
   setPreSelectedLocations(locations: LocationObject[]): void {
     this.preSelectedLocations = locations;
+  }
+
+  /**
+   * Zoom to the primary selection location
+   * Provides a convenient way to access the directive's zoom function
+   */
+  zoomToSelection(): void {
+    this.mapDirective?.zoomToSelection();
   }
 }
