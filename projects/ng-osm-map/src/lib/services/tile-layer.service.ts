@@ -21,8 +21,19 @@ export class TileLayerService {
       type: 'satellite',
       name: 'Satellite',
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      labelUrl: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
       attribution: '© <a href="https://www.esri.com/">Esri</a>, © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19
+      maxZoom: 19,
+      subdomains: ['a', 'b', 'c', 'd']
+    },
+    hybrid: {
+      type: 'hybrid',
+      name: 'Hybrid',
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      labelUrl: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
+      attribution: '© <a href="https://www.esri.com/">Esri</a>, © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
+      maxZoom: 19,
+      subdomains: ['a', 'b', 'c', 'd']
     },
     terrain: {
       type: 'terrain',
@@ -87,6 +98,7 @@ export class TileLayerService {
     return [
       this.predefinedLayers.openstreetmap,
       this.predefinedLayers.satellite,
+      this.predefinedLayers.hybrid,
       this.predefinedLayers.terrain,
       this.predefinedLayers.dark,
       this.predefinedLayers.light

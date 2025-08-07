@@ -30,93 +30,6 @@
       </div>
     </section>
 
-    <!-- Controls -->
-    <section class="controls">
-      <h2>Map Controls</h2>
-      <div class="button-group">
-        <button class="btn btn-primary" (click)="addRandomPin()">
-          📍 Add Random Pin
-        </button>
-        <button class="btn btn-primary" (click)="addSinglePin()">
-          🏙️ Add City Pin (Efficient)
-        </button>
-        <button class="btn btn-secondary" (click)="clearPins()">
-          🧹 Clear Pins
-        </button>
-        <button class="btn btn-info" (click)="zoomToNewYork()">
-          🏙️ Zoom to NYC
-        </button>
-        <button class="btn btn-success" (click)="zoomToWorld()">
-          🌍 World View
-        </button>
-        <button class="btn btn-warning" (click)="movePinToLondon()" [disabled]="pins.length === 0">
-          🇬🇧 Move First Pin to London
-        </button>
-        <button class="btn btn-info" (click)="clearSelections()">
-          🧹 Clear Selections
-        </button>
-        <button class="btn btn-success" (click)="toggleMultiSelect()">
-          {{ isMultiSelectEnabled() ? '📍 Single Select' : '📍 Multi Select' }}
-        </button>
-        <button class="btn btn-secondary" (click)="testTemplatePopups()">
-          🧩 Test Templates
-        </button>
-        <button class="btn btn-outline-secondary" (click)="clearCache()">
-          🗑️ Clear Cache
-        </button>
-      </div>
-      <p class="pin-count">Current pins: {{ pins.length }}</p>
-      <p class="selection-mode-info">{{ getSelectionModeDescription() }}</p>
-    </section>
-
-    <!-- Pre-selection Demo Controls -->
-    <section class="pre-selection-controls">
-      <h2>🎯 Pre-Selection Demo</h2>
-      <p class="info-text">Pre-selected locations don't trigger selectionChanged events and are perfect for initializing map state.</p>
-      <div class="button-group">
-        <button class="btn btn-primary" (click)="setPreSelectedLocation('New York City')">
-          🗽 Pre-select NYC
-        </button>
-        <button class="btn btn-primary" (click)="setPreSelectedLocation('London')">
-          🇬🇧 Pre-select London
-        </button>
-        <button class="btn btn-primary" (click)="setPreSelectedLocation('Tokyo')">
-          🇯🇵 Pre-select Tokyo
-        </button>
-        <button class="btn btn-success" (click)="setMultiplePreSelectedLocations()">
-          🌍 Pre-select Multiple (NYC, London, Tokyo)
-        </button>
-        <button class="btn btn-secondary" (click)="clearPreSelectedLocations()">
-          🧹 Clear Pre-selections
-        </button>
-      </div>
-      <p class="pre-selection-info">
-        Current pre-selections: {{ preSelectedLocations.length }}
-        <span *ngIf="preSelectedLocations.length > 0">
-          ({{ getPreSelectedLocationNames() }})
-        </span>
-      </p>
-    </section>
-
-    <!-- Tile Layer Controls -->
-    <section class="tile-layer-controls">
-      <h2>🗺️ Map Layers</h2>
-      <p class="current-layer">Current Layer: <strong>{{ getCurrentTileLayerName() }}</strong></p>
-      <div class="layer-buttons">
-        <button
-          *ngFor="let layer of tileLayerOptions"
-          class="btn btn-layer"
-          [class.active]="currentTileLayer === layer.type"
-          (click)="switchTileLayer(layer.type)"
-          [title]="layer.description">
-          {{ layer.name }}
-        </button>
-      </div>
-      <p class="layer-note">
-        <small>💡 The map also has a built-in layer control in the top-right corner</small>
-      </p>
-    </section>
-
     <!-- Search Input Directive Demo -->
     <section class="search-input-demo">
       <h2>🔍 Search Input Directive Demo</h2>
@@ -197,6 +110,247 @@
             No search events yet. Try using the search inputs above!
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- Map Controls (Combined) -->
+    <section class="map-controls-combined">
+      <h2>🎮 Map Controls</h2>
+      <div class="controls-grid">
+
+        <!-- Basic Map Controls -->
+        <div class="control-group">
+          <h3>📍 Pin & Navigation</h3>
+          <div class="button-group">
+            <button class="btn btn-primary" (click)="addRandomPin()">
+              📍 Add Random Pin
+            </button>
+            <button class="btn btn-primary" (click)="addSinglePin()">
+              🏙️ Add City Pin
+            </button>
+            <button class="btn btn-secondary" (click)="clearPins()">
+              🧹 Clear Pins
+            </button>
+            <button class="btn btn-info" (click)="zoomToNewYork()">
+              🏙️ Zoom to NYC
+            </button>
+            <button class="btn btn-success" (click)="zoomToWorld()">
+              🌍 World View
+            </button>
+            <button class="btn btn-warning" (click)="movePinToLondon()" [disabled]="pins.length === 0">
+              🇬🇧 Move Pin to London
+            </button>
+          </div>
+          <p class="pin-count">Current pins: {{ pins.length }}</p>
+        </div>
+
+        <!-- Selection Controls -->
+        <div class="control-group">
+          <h3>🎯 Selection</h3>
+          <div class="button-group">
+            <button class="btn btn-success" (click)="toggleMultiSelect()">
+              {{ isMultiSelectEnabled() ? '📍 Single Select' : '📍 Multi Select' }}
+            </button>
+            <button class="btn btn-info" (click)="clearSelections()">
+              🧹 Clear Selections
+            </button>
+          </div>
+          <div class="button-group">
+            <button class="btn"
+                    [class.btn-primary]="autoZoomToSelection"
+                    [class.btn-outline-primary]="!autoZoomToSelection"
+                    (click)="toggleAutoZoomToSelection()">
+              {{ autoZoomToSelection ? '🔍 Auto Zoom ON' : '🔍 Auto Zoom OFF' }}
+            </button>
+            <button class="btn btn-secondary"
+                    (click)="manualZoomToFirstSelection()"
+                    [disabled]="selectedLocations.length === 0">
+              🎯 Zoom to First
+            </button>
+          </div>
+          <div class="zoom-level-control" *ngIf="autoZoomToSelection">
+            <label for="zoomLevel">Zoom Level ({{ autoZoomLevel }}):</label>
+            <input type="range"
+                   id="zoomLevel"
+                   min="10"
+                   max="18"
+                   step="1"
+                   [value]="autoZoomLevel"
+                   (input)="onZoomLevelChange($event)"
+                   class="zoom-slider">
+          </div>
+          <div class="animation-control" *ngIf="autoZoomToSelection">
+            <button class="btn btn-sm"
+                    [class.btn-success]="isAnimatedZoomEnabled()"
+                    [class.btn-outline-success]="!isAnimatedZoomEnabled()"
+                    (click)="toggleAnimatedZoom()">
+              {{ isAnimatedZoomEnabled() ? '🎬 Animated' : '⚡ Instant' }} Zoom
+            </button>
+          </div>
+          <p class="selection-mode-info">{{ getSelectionModeDescription() }}</p>
+          <p class="auto-zoom-info">{{ getAutoZoomDescription() }}</p>
+        </div>
+
+        <!-- Pre-selection Controls -->
+        <div class="control-group">
+          <h3>🎯 Pre-Selection</h3>
+          <div class="button-group">
+            <button class="btn btn-primary" (click)="setPreSelectedLocation('New York City')">
+              🗽 NYC
+            </button>
+            <button class="btn btn-primary" (click)="setPreSelectedLocation('London')">
+              🇬🇧 London
+            </button>
+            <button class="btn btn-primary" (click)="setPreSelectedLocation('Tokyo')">
+              🇯🇵 Tokyo
+            </button>
+            <button class="btn btn-success" (click)="setMultiplePreSelectedLocations()">
+              🌍 Multiple
+            </button>
+            <button class="btn btn-secondary" (click)="clearPreSelectedLocations()">
+              🧹 Clear
+            </button>
+          </div>
+          <p class="pre-selection-info">
+            Pre-selections: {{ preSelectedLocations.length }}
+            <span *ngIf="preSelectedLocations.length > 0">
+              ({{ getPreSelectedLocationNames() }})
+            </span>
+          </p>
+        </div>
+
+        <!-- Mode & Settings Controls -->
+        <div class="control-group">
+          <h3>⚙️ Mode & Settings</h3>
+          <div class="button-group">
+            <button class="btn"
+                    [class.btn-success]="!isReadonlyMode()"
+                    [class.btn-warning]="isReadonlyMode()"
+                    (click)="toggleReadonlyMode()">
+              {{ isReadonlyMode() ? '🔓 Enable' : '🔒 Readonly' }}
+            </button>
+            <button class="btn btn-secondary" (click)="testTemplatePopups()">
+              🧩 Templates
+            </button>
+            <button class="btn btn-outline-secondary" (click)="clearCache()">
+              🗑️ Clear Cache
+            </button>
+          </div>
+          <p class="readonly-info">
+            <strong>Mode:</strong> {{ isReadonlyMode() ? 'Readonly (interactions disabled)' : 'Interactive' }}
+          </p>
+        </div>
+
+        <!-- Boundary Controls -->
+        <div class="control-group">
+          <h3>🌍 Map Boundaries</h3>
+          <div class="boundary-modes">
+            <label class="radio-label">
+              <input type="radio"
+                     name="boundaryMode"
+                     value="none"
+                     [checked]="boundaryMode === 'none'"
+                     (change)="setBoundaryMode('none')">
+              <span>🌐 No Restrictions</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio"
+                     name="boundaryMode"
+                     value="world"
+                     [checked]="boundaryMode === 'world'"
+                     (change)="setBoundaryMode('world')">
+              <span>🌎 World Bounds</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio"
+                     name="boundaryMode"
+                     value="custom"
+                     [checked]="boundaryMode === 'custom'"
+                     (change)="setBoundaryMode('custom')">
+              <span>📍 Custom Bounds</span>
+            </label>
+          </div>
+
+          <div class="boundary-presets" *ngIf="boundaryMode === 'custom'">
+            <h4>Quick Presets:</h4>
+            <div class="preset-buttons">
+              <button *ngFor="let preset of boundaryPresets"
+                      class="btn btn-sm btn-outline-primary"
+                      (click)="setBoundaryPreset(preset)">
+                {{ preset.name }}
+              </button>
+            </div>
+
+            <h4>Custom Bounds:</h4>
+            <div class="custom-bounds-inputs">
+              <div class="bounds-row">
+                <label>North-East:</label>
+                <input type="number"
+                       [value]="customBounds.northEast.lat"
+                       (input)="onBoundInputChange($event, 'northEast.lat')"
+                       placeholder="Latitude"
+                       step="0.1"
+                       min="-90"
+                       max="90">
+                <input type="number"
+                       [value]="customBounds.northEast.lng"
+                       (input)="onBoundInputChange($event, 'northEast.lng')"
+                       placeholder="Longitude"
+                       step="0.1"
+                       min="-180"
+                       max="180">
+              </div>
+              <div class="bounds-row">
+                <label>South-West:</label>
+                <input type="number"
+                       [value]="customBounds.southWest.lat"
+                       (input)="onBoundInputChange($event, 'southWest.lat')"
+                       placeholder="Latitude"
+                       step="0.1"
+                       min="-90"
+                       max="90">
+                <input type="number"
+                       [value]="customBounds.southWest.lng"
+                       (input)="onBoundInputChange($event, 'southWest.lng')"
+                       placeholder="Longitude"
+                       step="0.1"
+                       min="-180"
+                       max="180">
+              </div>
+            </div>
+          </div>
+
+          <div class="no-wrap-control">
+            <label class="checkbox-label">
+              <input type="checkbox"
+                     [checked]="noWrapEnabled"
+                     (change)="toggleNoWrap()">
+              <span>🚫 Disable World Wrapping</span>
+            </label>
+          </div>
+
+          <div class="boundary-info">
+            <p><strong>Boundaries:</strong> {{ getBoundaryDescription() }}</p>
+            <p><strong>Wrapping:</strong> {{ getNoWrapDescription() }}</p>
+          </div>
+        </div>
+
+        <!-- Tile Layer Controls -->
+        <div class="control-group">
+          <h3>🗺️ Map Layers</h3>
+          <p class="current-layer">Current: <strong>{{ getCurrentTileLayerName() }}</strong></p>
+          <div class="layer-buttons">
+            <button
+              *ngFor="let layer of tileLayerOptions"
+              class="btn btn-layer"
+              [class.active]="currentTileLayer === layer.type"
+              (click)="switchTileLayer(layer.type)"
+              [title]="layer.description">
+              {{ layer.name }}
+            </button>
+          </div>
+        </div>
+
       </div>
     </section>
 
