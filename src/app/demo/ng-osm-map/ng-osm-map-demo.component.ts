@@ -138,7 +138,10 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
         draggable: true
       },
       showDeleteButton: true, // Show delete button in tooltips
-      allowPinDeletion: true // Allow pin deletion from tooltips
+      allowPinDeletion: true, // Allow pin deletion from tooltips
+      autoZoomToSelection: false, // Auto-zoom to selected location
+      selectionZoom: 15, // Zoom level for selection
+      animatedZoom: true // Use animated zoom
     },
     searchInput: {
       enableExternalBinding: true,
@@ -167,6 +170,21 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
     { name: 'Tokyo', location: { latitude: 35.6762, longitude: 139.6503 } },
     { name: 'Paris', location: { latitude: 48.8566, longitude: 2.3522 } },
     { name: 'Sydney', location: { latitude: -33.8688, longitude: 151.2093 } }
+  ];
+
+  // Boundary control options
+  boundaryMode: 'none' | 'world' | 'custom' = 'none';
+  noWrapEnabled: boolean = false;
+  customBounds = {
+    northEast: { lat: 60, lng: 20 },
+    southWest: { lat: 35, lng: -20 }
+  };
+
+  // Available boundary presets
+  boundaryPresets = [
+    { name: 'Europe', bounds: { northEast: { lat: 70, lng: 40 }, southWest: { lat: 35, lng: -20 } } },
+    { name: 'North America', bounds: { northEast: { lat: 72, lng: -50 }, southWest: { lat: 15, lng: -170 } } },
+    { name: 'Asia Pacific', bounds: { northEast: { lat: 60, lng: 180 }, southWest: { lat: -50, lng: 60 } } }
   ];
 
   // Track special pins
@@ -234,11 +252,32 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
 
   getPreSelectedLocationNames(): string {
     return this.preSelectedLocations.map((loc, i) => {
-      const demoLocation = this.demoLocations.find(demo => 
+      const demoLocation = this.demoLocations.find(demo =>
         demo.location.latitude === loc.latitude && demo.location.longitude === loc.longitude
       );
       return demoLocation?.name || `Location ${i+1}`;
     }).join(', ');
+  }
+
+  // Readonly mode methods
+  toggleReadonlyMode(): void {
+    const currentReadonly = (this.mapOptions as any).readonly || false;
+    this.mapOptions = {
+      ...this.mapOptions,
+      readonly: !currentReadonly
+    } as any;
+  }
+
+  isReadonlyMode(): boolean {
+    return (this.mapOptions as any).readonly || false;
+  }
+
+  getReadonlyModeDescription(): string {
+    if (this.isReadonlyMode()) {
+      return 'Readonly Mode: All map interactions disabled (zoom, pan, click, drag, search)';
+    } else {
+      return 'Interactive Mode: Full map interactions enabled';
+    }
   }
 
   // Event handlers
@@ -344,6 +383,8 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
   onSelectionChanged(selections: SelectedLocation[]) {
     console.log('Selections changed:', selections);
     this.selectedLocations = selections;
+
+    // Auto-zoom is now handled by the directive itself based on mapOptions.selection.autoZoomToSelection
   }
 
   getSelectedLocationInfo(): string {
@@ -451,44 +492,57 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
     return this.mapOptions.selection?.multiSelect || false;
   }
 
-  getSelectionModeDescription(): string {
-    if (this.isMultiSelectEnabled()) {
-      return 'Multi-Select Mode: Map clicks allow multiple selections. Search results always create/replace a single search pin. The search pin takes priority for updating the search input.';
+  // Auto-zoom to selection controls
+  toggleAutoZoomToSelection(): void {
+    const currentAutoZoom = this.mapOptions.selection?.autoZoomToSelection || false;
+    this.mapOptions = {
+      ...this.mapOptions,
+      selection: {
+        ...this.mapOptions.selection,
+        autoZoomToSelection: !currentAutoZoom
+      }
+    };
+  }
+
+  isAutoZoomToSelectionEnabled(): boolean {
+    return this.mapOptions.selection?.autoZoomToSelection || false;
+  }
+
+  updateSelectionZoomLevel(level: number): void {
+    this.mapOptions = {
+      ...this.mapOptions,
+      selection: {
+        ...this.mapOptions.selection,
+        selectionZoom: level
+      }
+    };
+  }
+
+  getSelectionZoomLevel(): number {
+    return this.mapOptions.selection?.selectionZoom || 15;
+  }
+
+  toggleAnimatedZoom(): void {
+    const currentAnimated = this.mapOptions.selection?.animatedZoom !== false; // Default to true
+    this.mapOptions = {
+      ...this.mapOptions,
+      selection: {
+        ...this.mapOptions.selection,
+        animatedZoom: !currentAnimated
+      }
+    };
+  }
+
+  isAnimatedZoomEnabled(): boolean {
+    return this.mapOptions.selection?.animatedZoom !== false; // Default to true
+  }
+
+  getAutoZoomDescription(): string {
+    if (this.isAutoZoomToSelectionEnabled()) {
+      return `Auto-zoom enabled: Zoom to level ${this.getSelectionZoomLevel()} with ${this.isAnimatedZoomEnabled() ? 'animated' : 'instant'} transition`;
     } else {
-      return 'Single-Select Mode: Both map clicks and search results use single selection (synced). Only one selection pin exists at a time.';
+      return 'Auto-zoom disabled: Manual zoom control only';
     }
-  }
-
-  getSelectedLocationsInfo(): string {
-    if (this.selectedLocations.length === 0) return 'No locations selected';
-
-    const searchSelections = this.selectedLocations.filter(sel => sel.id.startsWith('search-result_'));
-    const mapSelections = this.selectedLocations.filter(sel => sel.id.startsWith('map-click_'));
-
-    let info = `${this.selectedLocations.length} location(s) selected:\n`;
-
-    if (searchSelections.length > 0) {
-      info += `\n🔍 Search Selections (${searchSelections.length}):\n`;
-      searchSelections.forEach((sel, i) => {
-        info += `${i + 1}. ${sel.addressInfo?.display_name || `${sel.coordinates.latitude.toFixed(4)}, ${sel.coordinates.longitude.toFixed(4)}`}\n`;
-      });
-    }
-
-    if (mapSelections.length > 0) {
-      info += `\n📍 Map Click Selections (${mapSelections.length}):\n`;
-      mapSelections.forEach((sel, i) => {
-        info += `${i + 1}. ${sel.addressInfo?.display_name || `${sel.coordinates.latitude.toFixed(4)}, ${sel.coordinates.longitude.toFixed(4)}`}\n`;
-      });
-    }
-
-    return info.trim();
-  }
-
-  getDeleteHistoryInfo(): string {
-    if (this.deleteHistory.length === 0) return 'No pins deleted yet';
-
-    const lastDelete = this.deleteHistory[0];
-    return `Last deleted: ${lastDelete.deletedPin.title || 'Unknown Pin'}\nReason: ${lastDelete.reason}`;
   }
 
   // Test method for template popups
@@ -609,5 +663,159 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
     if (this.searchEventLog.length > 10) {
       this.searchEventLog = this.searchEventLog.slice(0, 10);
     }
+  }
+
+  // Boundary Controls
+  setBoundaryMode(mode: 'none' | 'world' | 'custom'): void {
+    this.boundaryMode = mode;
+    this.updateMapBoundaries();
+  }
+
+  toggleNoWrap(): void {
+    this.noWrapEnabled = !this.noWrapEnabled;
+    this.updateMapBoundaries();
+  }
+
+  setBoundaryPreset(preset: { name: string; bounds: { northEast: { lat: number; lng: number }; southWest: { lat: number; lng: number } } }): void {
+    this.customBounds = preset.bounds;
+    this.boundaryMode = 'custom';
+    this.updateMapBoundaries();
+  }
+
+  updateCustomBounds(): void {
+    if (this.boundaryMode === 'custom') {
+      this.updateMapBoundaries();
+    }
+  }
+
+  updateCustomBoundValue(property: string, value: string): void {
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue)) {
+      const parts = property.split('.');
+      if (parts.length === 3) {
+        (this.customBounds as any)[parts[0]][parts[1]] = numValue;
+        this.updateCustomBounds();
+      }
+    }
+  }
+
+  onBoundInputChange(event: Event, property: string): void {
+    const target = event.target as HTMLInputElement;
+    if (target && target.value) {
+      this.updateCustomBoundValue(property, target.value);
+    }
+  }
+
+  private updateMapBoundaries(): void {
+    // Update map options with boundary settings
+    (this.mapOptions as any).enableWorldBounds = this.boundaryMode === 'world';
+    (this.mapOptions as any).noWrap = this.noWrapEnabled;
+
+    if (this.boundaryMode === 'custom') {
+      (this.mapOptions as any).mapBounds = {
+        northEast: [this.customBounds.northEast.lat, this.customBounds.northEast.lng],
+        southWest: [this.customBounds.southWest.lat, this.customBounds.southWest.lng]
+      };
+    } else {
+      delete (this.mapOptions as any).mapBounds;
+    }
+
+    // Force map options update (creates a new object reference)
+    this.mapOptions = { ...this.mapOptions };
+  }
+
+  getBoundaryDescription(): string {
+    switch (this.boundaryMode) {
+      case 'world':
+        return 'World boundaries enabled - prevents panning outside world bounds (-85° to 85° latitude)';
+      case 'custom':
+        return `Custom boundaries: ${this.customBounds.southWest.lat}°,${this.customBounds.southWest.lng}° to ${this.customBounds.northEast.lat}°,${this.customBounds.northEast.lng}°`;
+      default:
+        return 'No boundary restrictions - unlimited panning and scrolling';
+    }
+  }
+
+  getNoWrapDescription(): string {
+    return this.noWrapEnabled ?
+      'No world wrapping - prevents multiple copies of the world map' :
+      'World wrapping enabled - shows multiple copies of the world horizontally';
+  }
+
+  // Getters for template binding
+  get autoZoomToSelection(): boolean {
+    return this.isAutoZoomToSelectionEnabled();
+  }
+
+  get autoZoomLevel(): number {
+    return this.getSelectionZoomLevel();
+  }
+
+  onZoomLevelChange(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const zoomLevel = parseInt(target.value, 10);
+    this.updateSelectionZoomLevel(zoomLevel);
+  }
+
+  /**
+   * Zoom to the first selected location manually
+   * Calls the component's zoomToSelection method
+   */
+  manualZoomToFirstSelection(): void {
+    if (this.selectedLocations.length === 0) return;
+
+    if (this.mapComponent) {
+      // Call the component's zoomToSelection method
+      this.mapComponent.zoomToSelection();
+    }
+  }
+
+  /**
+   * Get a description of the current selection mode
+   */
+  getSelectionModeDescription(): string {
+    const multiSelect = this.isMultiSelectEnabled();
+    const maxSelections = this.mapOptions.selection?.maxSelections || 0;
+
+    if (multiSelect) {
+      if (maxSelections > 0) {
+        return `Multi-selection enabled (max ${maxSelections})`;
+      } else {
+        return 'Multi-selection enabled (unlimited)';
+      }
+    } else {
+      return 'Single selection mode';
+    }
+  }
+
+  /**
+   * Get information about all selected locations
+   */
+  getSelectedLocationsInfo(): string {
+    if (this.selectedLocations.length === 0) {
+      return 'No locations selected';
+    }
+
+    return this.selectedLocations.map((loc, index) => {
+      const coords = `${loc.coordinates.latitude.toFixed(4)}, ${loc.coordinates.longitude.toFixed(4)}`;
+      const address = loc.addressInfo?.display_name || 'No address available';
+      return `${index + 1}. ${coords}\n   ${address}`;
+    }).join('\n');
+  }
+
+  /**
+   * Get information about deleted pins
+   */
+  getDeleteHistoryInfo(): string {
+    if (this.deleteHistory.length === 0) {
+      return 'No deletions recorded';
+    }
+
+    return this.deleteHistory.slice(-5).map((event, index) => {
+      const location = event.deletedPin.location;
+      const coords = location.latitude && location.longitude
+        ? `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`
+        : location.address || 'Unknown location';
+      return `${index + 1}. ${event.deletedPin.title || 'Untitled'} (${coords}) - ${event.reason}`;
+    }).join('\n');
   }
 }

@@ -53,6 +53,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
   private searchControl?: L.Control;
   private layerControl?: L.Control.Layers;
   private currentTileLayer?: L.TileLayer;
+  private _hybridLabelLayer?: L.TileLayer;
   private tileLayers: { [key: string]: L.TileLayer } = {};
   private clickSelectEnabled = false;
   private autocompleteDropdown?: HTMLElement;
@@ -123,7 +124,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
     }
 
     if (changes['mapOptions']) {
-      // Handle any map options changes if needed
+      this.handleMapOptionsChange(changes['mapOptions']);
     }
 
     if (changes['preSelectedLocations']) {
@@ -145,10 +146,18 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
         zoom: options.zoom!,
         minZoom: options.minZoom,
         maxZoom: options.maxZoom,
-        zoomControl: options.zoomControl,
-        scrollWheelZoom: options.scrollWheelZoom,
-        doubleClickZoom: options.doubleClickZoom
+        zoomControl: options.readonly ? false : options.zoomControl,
+        scrollWheelZoom: options.readonly ? false : options.scrollWheelZoom,
+        doubleClickZoom: options.readonly ? false : options.doubleClickZoom,
+        dragging: options.readonly ? false : true,
+        touchZoom: options.readonly ? false : true,
+        boxZoom: options.readonly ? false : true,
+        keyboard: options.readonly ? false : true,
+        worldCopyJump: options.noWrap ? false : true
       });
+
+      // Setup map boundaries to prevent grey areas
+      this.setupMapBoundaries(options);
 
       // Add tile layer
       this.setupTileLayers(options);
@@ -156,23 +165,23 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
       // Set initial view
       this.setInitialView();
 
-      // Add layer control if enabled
-      if (options.enableLayerControl) {
+      // Add layer control if enabled and not readonly
+      if (options.enableLayerControl && !options.readonly) {
         this.addLayerControl();
       }
 
-      // Add search control if enabled
-      if (options.search?.enabled) {
+      // Add search control if enabled and not readonly
+      if (options.search?.enabled && !options.readonly) {
         this.addSearchControl();
       }
 
-      // Enable click-to-select if configured
-      if (options.enableClickSelect) {
+      // Enable click-to-select if configured and not readonly
+      if (options.enableClickSelect && !options.readonly) {
         this.enableClickSelect();
       }
 
-      // Setup external search input if configured
-      if (options.searchInput?.enableExternalBinding) {
+      // Setup external search input if configured and not readonly
+      if (options.searchInput?.enableExternalBinding && !options.readonly) {
         this.setupExternalSearchInput();
       }
 
@@ -186,6 +195,63 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
       // Initialize pre-selected locations
       this.handlePreSelectedLocationsChange();
     });
+  }
+
+  /**
+   * Setup map boundaries to prevent panning outside desired limits
+   */
+  private setupMapBoundaries(options: MapOptions): void {
+    if (!this.map) return;
+
+    // Clear any existing max bounds
+    this.map.setMaxBounds(undefined);
+
+    if (options.mapBounds) {
+      // Use custom boundaries
+      const bounds = L.latLngBounds(
+        L.latLng(options.mapBounds.southWest[0], options.mapBounds.southWest[1]),
+        L.latLng(options.mapBounds.northEast[0], options.mapBounds.northEast[1])
+      );
+      this.map.setMaxBounds(bounds);
+
+      // Force the map to stay within bounds
+      this.map.on('drag', () => {
+        this.map!.panInsideBounds(bounds, { animate: false });
+      });
+
+      // Also handle programmatic panning
+      this.map.on('moveend', () => {
+        if (!bounds.contains(this.map!.getCenter())) {
+          this.map!.panInsideBounds(bounds, { animate: false });
+        }
+      });
+    } else if (options.enableWorldBounds) {
+      // Use world boundaries to prevent grey areas
+      // Web Mercator projection limits are approximately -85 to 85 degrees latitude
+      const worldBounds = L.latLngBounds(
+        L.latLng(-85.0511, -180), // Southwest corner (Web Mercator limit)
+        L.latLng(85.0511, 180)    // Northeast corner (Web Mercator limit)
+      );
+      this.map.setMaxBounds(worldBounds);
+
+      // Force the map to stay within world bounds
+      this.map.on('drag', () => {
+        this.map!.panInsideBounds(worldBounds, { animate: false });
+      });
+
+      this.map.on('moveend', () => {
+        if (!worldBounds.contains(this.map!.getCenter())) {
+          this.map!.panInsideBounds(worldBounds, { animate: false });
+        }
+      });
+    }
+
+    // Handle no-wrap option for tile layers - prevents multiple copies of the world
+    if (options.noWrap) {
+      // This will be applied to tile layers in setupTileLayers
+      // Also disable world copy jump if enabled
+      this.map.options.worldCopyJump = false;
+    }
   }
 
   private setInitialView(): void {
@@ -390,8 +456,8 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
       this.addPopupToMarker(marker, pin, index);
     }
 
-    // Update draggable state
-    const isDraggable = pin.draggable !== undefined ? pin.draggable : this.mapOptions.defaultPinsDraggable || false;
+    // Update draggable state (disabled in readonly mode)
+    const isDraggable = this.mapOptions.readonly ? false : (pin.draggable !== undefined ? pin.draggable : this.mapOptions.defaultPinsDraggable || false);
     if (marker.options.draggable !== isDraggable) {
       if (isDraggable) {
         marker.dragging?.enable();
@@ -404,8 +470,8 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
   private createMarker(coords: { lat: number; lng: number }, pin: PinObject, pinIndex: number): L.Marker {
     const markerOptions: L.MarkerOptions = {};
 
-    // Set draggable option
-    const isDraggable = pin.draggable !== undefined ? pin.draggable : this.mapOptions.defaultPinsDraggable || false;
+    // Set draggable option (disabled in readonly mode)
+    const isDraggable = this.mapOptions.readonly ? false : (pin.draggable !== undefined ? pin.draggable : this.mapOptions.defaultPinsDraggable || false);
     markerOptions.draggable = isDraggable;
 
     // Custom icon
@@ -505,9 +571,9 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
       // Handle string-based popup
       let popupContent = pin.content || pin.title || '';
 
-      // Add delete button if enabled
+      // Add delete button if enabled and not in readonly mode
       const selectionOptions = this.mapOptions.selection;
-      if (selectionOptions?.allowPinDeletion && selectionOptions?.showDeleteButton) {
+      if (selectionOptions?.allowPinDeletion && selectionOptions?.showDeleteButton && !this.mapOptions.readonly) {
         popupContent += `
           <br>
           <button class="pin-delete-btn" onclick="window.deletePinHandler?.(${pinIndex})"
@@ -896,6 +962,10 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
   /**
    * Handle search functionality
    */
+  /**
+   * Handle search results, create pins and selections
+   * Prioritizes selection-based auto-zoom over search-based auto-zoom
+   */
   private handleSearch(query: string): void {
     if (!query || !this.map) return;
 
@@ -904,21 +974,7 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
     this.geocodingService.resolveLocation(locationObj).subscribe(coords => {
       if (coords && this.map) {
         const searchOptions = this.mapOptions.search!;
-        const zoom = searchOptions.searchZoom || 15;
-
-        // Zoom to location if autoZoom is enabled (default true)
-        if (searchOptions.autoZoom !== false) {
-          this.map.setView([coords.lat, coords.lng], zoom);
-        }
-
-        // Add pin if configured - but let the selection system handle it
-        // We'll pass the pin configuration to the selection handler
-        const searchPinConfig = searchOptions.addPinOnResult ? {
-          ...searchOptions.searchResultPin,
-          title: searchOptions.searchResultPin?.title || 'Search Result',
-          content: searchOptions.searchResultPin?.content || `<h3>📍 Search Result</h3><p>${query}</p>`,
-          color: searchOptions.searchResultPin?.color || '#ff6b6b'
-        } : undefined;
+        const selectionOptions = this.mapOptions.selection;
 
         // Get address information for the result
         this.geocodingService.reverseGeocode(coords.lat, coords.lng).subscribe(addressInfo => {
@@ -937,8 +993,44 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
             } : undefined
           };
 
-          // Handle selection for search result (always single selection)
-          this.handleLocationSelection(searchClickEvent, 'search-result', searchPinConfig);
+          // Determine if we should create a pin for this search result
+          const shouldCreatePin = searchOptions.addPinOnResult ||
+                                (selectionOptions && selectionOptions.createPinsForSelections);
+
+          // Store original autoZoomToSelection setting if it exists
+          const originalAutoZoom = selectionOptions?.autoZoomToSelection;
+
+          // Temporarily override autoZoomToSelection based on search settings
+          // if autoZoomToSelection is not explicitly enabled
+          if (selectionOptions && originalAutoZoom !== true && searchOptions) {
+            if (searchOptions.autoZoom !== false) {
+              selectionOptions.autoZoomToSelection = true;
+              // Safe access to searchZoom with fallback
+              const searchZoomLevel = searchOptions?.searchZoom;
+              selectionOptions.selectionZoom = searchZoomLevel || selectionOptions.selectionZoom || 15;
+            }
+          }
+
+          if (shouldCreatePin) {
+            // Use search pin config if available, otherwise fall back to selection pin config
+            const pinConfig = searchOptions.addPinOnResult && searchOptions.searchResultPin ? {
+              ...searchOptions.searchResultPin,
+              title: searchOptions.searchResultPin.title || 'Search Result',
+              content: searchOptions.searchResultPin.content || `<h3>📍 Search Result</h3><p>${query}</p>`,
+              color: searchOptions.searchResultPin.color || '#ff6b6b'
+            } : undefined;
+
+            // Handle through selection system for consistency
+            this.handleLocationSelection(searchClickEvent, 'search-result', pinConfig);
+          } else {
+            // No pin creation, but still handle as selection for zoom behavior
+            this.handleLocationSelection(searchClickEvent, 'search-result');
+          }
+
+          // Restore original autoZoomToSelection setting if we changed it
+          if (selectionOptions && originalAutoZoom !== undefined && originalAutoZoom !== selectionOptions.autoZoomToSelection) {
+            selectionOptions.autoZoomToSelection = originalAutoZoom;
+          }
 
           this.ngZone.run(() => {
             this.searchResult.emit(searchResult);
@@ -1275,11 +1367,28 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
       attribution: tileLayerConfig.attribution,
       maxZoom: tileLayerConfig.maxZoom || 19,
       minZoom: tileLayerConfig.minZoom || 1,
-      subdomains: tileLayerConfig.subdomains || ['a', 'b', 'c']
+      subdomains: tileLayerConfig.subdomains || ['a', 'b', 'c'],
+      noWrap: options.noWrap || false
     });
 
     this.currentTileLayer.addTo(this.map);
     this.tileLayers[tileLayerConfig.name] = this.currentTileLayer;
+    
+    // For hybrid layer or satellite with labels, add the label overlay
+    if ((tileLayerConfig.type === 'hybrid' || tileLayerConfig.type === 'satellite') && tileLayerConfig.labelUrl) {
+      const labelLayer = L.tileLayer(tileLayerConfig.labelUrl, {
+        pane: 'overlayPane',
+        attribution: '',
+        maxZoom: tileLayerConfig.maxZoom || 19,
+        minZoom: tileLayerConfig.minZoom || 1,
+        subdomains: tileLayerConfig.subdomains || ['a', 'b', 'c'],
+        noWrap: options.noWrap || false
+      });
+      labelLayer.addTo(this.map);
+      
+      // Store the label layer for later reference
+      this._hybridLabelLayer = labelLayer;
+    }
 
     // Setup additional tile layers if layer control is enabled
     if (options.enableLayerControl) {
@@ -1299,7 +1408,8 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
           attribution: layerConfig.attribution,
           maxZoom: layerConfig.maxZoom || 19,
           minZoom: layerConfig.minZoom || 1,
-          subdomains: layerConfig.subdomains || ['a', 'b', 'c']
+          subdomains: layerConfig.subdomains || ['a', 'b', 'c'],
+          noWrap: options.noWrap || false
         });
         this.tileLayers[layerConfig.name] = tileLayer;
       }
@@ -1339,16 +1449,39 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
     if (this.currentTileLayer) {
       this.map.removeLayer(this.currentTileLayer);
     }
+    
+    // Remove existing label layer if present
+    if (this._hybridLabelLayer) {
+      this.map.removeLayer(this._hybridLabelLayer);
+      this._hybridLabelLayer = undefined;
+    }
 
     // Add new tile layer
     this.currentTileLayer = L.tileLayer(layerConfig.url, {
       attribution: layerConfig.attribution,
       maxZoom: layerConfig.maxZoom || 19,
       minZoom: layerConfig.minZoom || 1,
-      subdomains: layerConfig.subdomains || ['a', 'b', 'c']
+      subdomains: layerConfig.subdomains || ['a', 'b', 'c'],
+      noWrap: this.mapOptions?.noWrap || false
     });
 
     this.currentTileLayer.addTo(this.map);
+    
+    // For hybrid layer or satellite with labels, add the label overlay
+    if ((layerType === 'hybrid' || layerType === 'satellite') && layerConfig.labelUrl) {
+      const labelLayer = L.tileLayer(layerConfig.labelUrl, {
+        pane: 'overlayPane',
+        attribution: '',
+        maxZoom: layerConfig.maxZoom || 19,
+        minZoom: layerConfig.minZoom || 1,
+        subdomains: layerConfig.subdomains || ['a', 'b', 'c'],
+        noWrap: this.mapOptions?.noWrap || false
+      });
+      labelLayer.addTo(this.map);
+      
+      // Store the label layer for later reference
+      this._hybridLabelLayer = labelLayer;
+    }
   }
 
   /**
@@ -1389,6 +1522,53 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
               longitude: coords.lng
             };
           }
+        });
+      }
+    }
+  }
+
+  /**
+   * Unified zoom to location method that handles both search and selection zoom preferences
+   */
+  private zoomToLocation(coordinates: { latitude: number; longitude: number }, source: 'search' | 'selection'): void {
+    if (!this.map) return;
+
+    const searchOptions = this.mapOptions.search;
+    const selectionOptions = this.mapOptions.selection;
+
+    let shouldZoom = false;
+    let zoomLevel = 15;
+    let animated = true;
+
+    if (source === 'search') {
+      // For search results, check search autoZoom first, then selection autoZoom
+      if (searchOptions?.autoZoom !== false) {
+        shouldZoom = true;
+        zoomLevel = searchOptions?.searchZoom || 15;
+        animated = true; // Search zoom is always animated
+      } else if (selectionOptions?.autoZoomToSelection) {
+        shouldZoom = true;
+        zoomLevel = selectionOptions.selectionZoom || 15;
+        animated = selectionOptions.animatedZoom !== false;
+      }
+    } else if (source === 'selection') {
+      // For selections, only use selection autoZoom
+      if (selectionOptions?.autoZoomToSelection) {
+        shouldZoom = true;
+        zoomLevel = selectionOptions.selectionZoom || 15;
+        animated = selectionOptions.animatedZoom !== false;
+      }
+    }
+
+    if (shouldZoom) {
+      if (animated) {
+        this.map.setView([coordinates.latitude, coordinates.longitude], zoomLevel, {
+          animate: true,
+          duration: 1
+        });
+      } else {
+        this.map.setView([coordinates.latitude, coordinates.longitude], zoomLevel, {
+          animate: false
         });
       }
     }
@@ -1482,18 +1662,20 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
     }
 
     // Create pin for selection if enabled
-    if (selectionOptions.createPinsForSelections) {
+    if (selectionOptions.createPinsForSelections || customPinConfig) {
       let pinConfig: PinObject;
 
-      if (source === 'search-result' && customPinConfig) {
-        // Use custom search pin configuration
+      if (customPinConfig) {
+        // Use custom pin configuration (typically from search results)
+        // Merge with selection pin defaults for consistency
+        const baseConfig = selectionOptions.selectionPin || {};
         pinConfig = {
           location: clickEvent.coordinates,
-          title: customPinConfig.title || 'Search Result',
-          content: customPinConfig.content || this.generateSelectionPinContent(selectedLocation),
-          color: customPinConfig.color || '#ff6b6b',
-          draggable: customPinConfig.draggable !== false,
-          data: { selectionId: selectedLocation.id, isSearchSelection: true },
+          title: customPinConfig.title || baseConfig.title || (source === 'search-result' ? 'Search Result' : 'Selected Location'),
+          content: customPinConfig.content || baseConfig.content || this.generateSelectionPinContent(selectedLocation),
+          color: customPinConfig.color || baseConfig.color || (source === 'search-result' ? '#ff6b6b' : '#9c27b0'),
+          draggable: customPinConfig.draggable !== undefined ? customPinConfig.draggable : (baseConfig.draggable !== false),
+          data: { selectionId: selectedLocation.id, isSearchSelection: source === 'search-result' },
           ...customPinConfig
         };
       } else {
@@ -1525,6 +1707,11 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
 
     // Update external search input if enabled
     this.updateExternalSearchInputFromSelection();
+
+    // Auto-zoom to selection if enabled (works even in readonly mode)
+    if (selectionOptions.autoZoomToSelection && this.selectedLocations.length > 0) {
+      this.zoomToSelection();
+    }
   }
 
   /**
@@ -1687,9 +1874,14 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
     }
 
     // In single-select mode, only process the first location
-    const locationsToProcess = selectionOptions.multiSelect 
-      ? this.preSelectedLocations 
+    const locationsToProcess = selectionOptions.multiSelect
+      ? this.preSelectedLocations
       : this.preSelectedLocations.slice(0, 1);
+
+    // Zoom to the first pre-selected location
+    if (locationsToProcess.length > 0) {
+      this.zoomToPreSelectedLocation(locationsToProcess[0]);
+    }
 
     // Process each location
     locationsToProcess.forEach(location => {
@@ -1718,12 +1910,152 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
   }
 
   /**
+   * Zoom to the first pre-selected location
+   */
+  private zoomToPreSelectedLocation(location: LocationObject): void {
+    if (!this.map) return;
+
+    const selectionOptions = this.mapOptions.selection;
+    if (!selectionOptions?.autoZoomToSelection) return;
+
+    this.geocodingService.resolveLocation(location).subscribe(coords => {
+      if (coords && this.map) {
+        const zoomLevel = selectionOptions.selectionZoom || 15;
+        const animated = selectionOptions.animatedZoom !== false; // Default to true
+
+        if (animated) {
+          // Use animated pan and zoom
+          this.map.setView([coords.lat, coords.lng], zoomLevel, {
+            animate: true,
+            duration: 1
+          });
+        } else {
+          // Use instant zoom without animation
+          this.map.setView([coords.lat, coords.lng], zoomLevel, {
+            animate: false
+          });
+        }
+      }
+    });
+  }
+
+  /**
+   * Handle changes to map options
+   */
+  private handleMapOptionsChange(change: any): void {
+    if (!this.map) return;
+
+    const currentOptions = change.currentValue || {};
+    const previousOptions = change.previousValue || {};
+
+    // Check if readonly mode changed
+    if (currentOptions.readonly !== previousOptions.readonly) {
+      this.updateReadonlyMode(currentOptions.readonly || false);
+    }
+
+    // Check if boundary options changed
+    if (currentOptions.enableWorldBounds !== previousOptions.enableWorldBounds ||
+        currentOptions.noWrap !== previousOptions.noWrap ||
+        JSON.stringify(currentOptions.mapBounds) !== JSON.stringify(previousOptions.mapBounds)) {
+      this.setupMapBoundaries(currentOptions);
+
+      // Update tile layers if noWrap changed
+      if (currentOptions.noWrap !== previousOptions.noWrap) {
+        this.setupTileLayers(currentOptions);
+      }
+    }
+
+    // Check if other options that affect map behavior changed
+    if (currentOptions.enableClickSelect !== previousOptions.enableClickSelect) {
+      if (currentOptions.enableClickSelect && !currentOptions.readonly) {
+        this.enableClickSelect();
+      } else {
+        this.toggleClickSelect(false);
+      }
+    }
+  }
+
+  /**
+   * Update readonly mode for the map
+   */
+  private updateReadonlyMode(readonly: boolean): void {
+    if (!this.map) return;
+
+    if (readonly) {
+      // Disable all interactions
+      this.map.dragging.disable();
+      this.map.touchZoom.disable();
+      this.map.doubleClickZoom.disable();
+      this.map.scrollWheelZoom.disable();
+      this.map.boxZoom.disable();
+      this.map.keyboard.disable();
+
+      // Disable click-to-select
+      this.toggleClickSelect(false);
+
+      // Remove zoom control
+      if (this.map.zoomControl) {
+        this.map.zoomControl.remove();
+      }
+    } else {
+      // Enable interactions based on current options
+      const options = { ...this.defaultOptions, ...this.mapOptions };
+
+      this.map.dragging.enable();
+      this.map.touchZoom.enable();
+
+      if (options.doubleClickZoom !== false) {
+        this.map.doubleClickZoom.enable();
+      }
+
+      if (options.scrollWheelZoom !== false) {
+        this.map.scrollWheelZoom.enable();
+      }
+
+      this.map.boxZoom.enable();
+      this.map.keyboard.enable();
+
+      // Re-enable click-to-select if configured
+      if (options.enableClickSelect) {
+        this.enableClickSelect();
+      }
+
+      // Re-add zoom control if configured
+      if (options.zoomControl !== false) {
+        this.map.zoomControl.addTo(this.map);
+      }
+    }
+
+    // Update all existing markers to respect readonly mode
+    this.updateMarkersReadonlyMode(readonly);
+  }
+
+  /**
+   * Update all markers to respect readonly mode
+   */
+  private updateMarkersReadonlyMode(readonly: boolean): void {
+    this.markers.forEach((marker, index) => {
+      if (index < this.pins.length) {
+        const pin = this.pins[index];
+        const originallyDraggable = pin.draggable !== undefined ? pin.draggable : this.mapOptions.defaultPinsDraggable || false;
+        const shouldBeDraggable = readonly ? false : originallyDraggable;
+
+        if (shouldBeDraggable) {
+          marker.dragging?.enable();
+        } else {
+          marker.dragging?.disable();
+        }
+      }
+    });
+  }
+
+  /**
    * Clear only pre-selected locations
    */
   private clearPreSelectedLocations(): void {
     // Remove only pre-selected locations, keep user selections
     const preSelectedSelections = this.selectedLocations.filter(sel => sel.id.startsWith('pre-selected_'));
-    
+
     preSelectedSelections.forEach(selection => {
       if (selection.pinIndex !== undefined) {
         this.deletePinByIndex(selection.pinIndex, 'programmatic');
@@ -1739,6 +2071,44 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
    */
   public clearLocationCache(): void {
     this.coordinatesCache.clear();
+  }
+
+  /**
+   * Zoom to the primary selected location
+   * This works even in readonly mode since it's just view navigation
+   *
+   * Zooms to the first selected location with zoom level and animation settings
+   * from SelectionOptions (selectionZoom and animatedZoom).
+   *
+   * - Used by auto-zoom when selection changes
+   * - Can be called manually via NgOsmMapComponent.zoomToSelection()
+   */
+  public zoomToSelection(): void {
+    if (!this.map || this.selectedLocations.length === 0) return;
+
+    const selectionOptions = this.mapOptions.selection;
+    if (!selectionOptions) return;
+
+    // Get the first selected location (priority order: search, then first in array)
+    const primarySelection = this.getPrimarySelection();
+    if (!primarySelection) return;
+
+    const coords = primarySelection.coordinates;
+    const zoomLevel = selectionOptions.selectionZoom || 15;
+    const animated = selectionOptions.animatedZoom !== false; // Default to true
+
+    if (animated) {
+      // Use animated pan and zoom
+      this.map.setView([coords.latitude, coords.longitude], zoomLevel, {
+        animate: true,
+        duration: 1
+      });
+    } else {
+      // Use instant zoom without animation
+      this.map.setView([coords.latitude, coords.longitude], zoomLevel, {
+        animate: false
+      });
+    }
   }
 
 }

@@ -134,6 +134,19 @@ export interface MapOptions {
   defaultPinsDraggable?: boolean;
   /** Pre-selected locations that will be marked as selected without triggering selection events */
   preSelectedLocations?: LocationObject[];
+  /** Enable readonly mode - disables all map interactions (zoom, pan, click, drag) */
+  readonly?: boolean;
+  /** Enable world boundaries - prevents panning outside of world bounds */
+  enableWorldBounds?: boolean;
+  /** Custom map boundaries - overrides world bounds if specified */
+  mapBounds?: {
+    /** Southwest corner [latitude, longitude] */
+    southWest: [number, number];
+    /** Northeast corner [latitude, longitude] */
+    northEast: [number, number];
+  };
+  /** Prevent world wrapping (showing multiple copies of the world horizontally) */
+  noWrap?: boolean;
 }
 
 /**
@@ -325,7 +338,7 @@ export interface SearchInputConfig {
 /**
  * Available tile layer types
  */
-export type TileLayerType = 'openstreetmap' | 'satellite' | 'terrain' | 'dark' | 'light' | 'watercolor' | 'toner';
+export type TileLayerType = 'openstreetmap' | 'satellite' | 'hybrid' | 'terrain' | 'dark' | 'light' | 'watercolor' | 'toner';
 
 /**
  * Tile layer configuration
@@ -337,6 +350,8 @@ export interface TileLayerConfig {
   name: string;
   /** Tile URL template */
   url: string;
+  /** URL template for label overlay (used in hybrid mode) */
+  labelUrl?: string;
   /** Attribution text */
   attribution: string;
   /** Maximum zoom level */
@@ -404,6 +419,12 @@ export interface SelectionOptions {
   showDeleteButton?: boolean;
   /** Allow deleting individual pins from tooltip */
   allowPinDeletion?: boolean;
+  /** Auto-zoom to the first selected location when selections change */
+  autoZoomToSelection?: boolean;
+  /** Zoom level to use when auto-zooming to selection (default: 15) */
+  selectionZoom?: number;
+  /** Use animated zoom transition (default: true) */
+  animatedZoom?: boolean;
 }
 
 /**
