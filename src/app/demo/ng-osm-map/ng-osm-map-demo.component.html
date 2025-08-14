@@ -18,27 +18,48 @@
       <h2>External Search with Autocomplete</h2>
       <div class="search-wrapper">
         <input
-          id="external-search-input"
           type="text"
+          ngOsmSearchInput
+          [connectedMapId]="mapId"
+          [enableAutocomplete]="true"
+          [showSuggestionsDropdown]="true"
           placeholder="Search locations... (try typing 'New York')"
-          class="search-input">
-        <p class="search-note">This input is bound to the map and shows autocomplete suggestions</p>
-        <p class="search-note">💡 When you search and then drag the red search result pin, this input will update automatically!</p>
+          class="search-input"
+          (search)="onSearchInputSearch($event)"
+          (suggestionSelected)="onSearchInputSuggestionSelected($event)"
+          (autocompleteResults)="onSearchInputAutocompleteResults($event)">
+        <p class="search-note">This input uses the ngOsmSearchInput directive and shows autocomplete suggestions</p>
+        <p class="search-note">💡 When you search and then drag the search result pin, this input will update automatically!</p>
         <p class="search-note">📍 Click on the map to select locations. Use the Multi Select button to enable multiple selections.</p>
-        <p class="search-note">� Search results always use single selection, regardless of multi-select mode.</p>
-        <p class="search-note">�🗑️ Click on pins to see their details and delete them individually using the delete button in the popup.</p>
+        <p class="search-note">🔍 Search results always use single selection, regardless of multi-select mode.</p>
+        <p class="search-note">🗑️ Click on pins to see their details and delete them individually using the delete button in the popup.</p>
+        <p class="search-note">🎯 This directive-based search input is independent of the map's readonly mode and will always function.</p>
       </div>
     </section>
 
     <!-- Search Input Directive Demo -->
     <section class="search-input-demo">
       <h2>🔍 Search Input Directive Demo</h2>
-      <p>New directive-based approach for connecting search inputs to maps:</p>
+      <p>Using the <code>ngOsmSearchInput</code> directive to connect external search inputs to maps:</p>
+      
+      <!-- Documentation Link -->
+      <div class="docs-link-section">
+        <div class="docs-link-card">
+          <div class="docs-icon">📚</div>
+          <div class="docs-content">
+            <h3>Complete API Documentation</h3>
+            <p>For comprehensive documentation including all available options, properties, events, and usage examples for <code>NgOsmMapComponent</code>, <code>NgOsmMapDirective</code>, and <code>NgOsmSearchInputDirective</code>:</p>
+            <a routerLink="/docs/ng-osm-map" class="docs-link-button">
+              📖 View Full Documentation →
+            </a>
+          </div>
+        </div>
+      </div>
 
+      <!-- Basic Examples -->
       <div class="demo-subsection">
-        <h3>Basic Search Input</h3>
-        <p>A basic search input connected to the main map below:</p>
-
+        <h3>🚀 Basic Search Input</h3>
+        <p>A minimal search input connected to the main map:</p>
         <div class="search-container">
           <input
             type="text"
@@ -54,10 +75,30 @@
         </div>
       </div>
 
+      <!-- Advanced Configuration -->
       <div class="demo-subsection">
-        <h3>Custom Template Search Input</h3>
-        <p>A search input with custom template for autocomplete suggestions:</p>
+        <h3>⚙️ Advanced Configuration</h3>
+        <p>Search input with custom debounce, max results, and minimum query length:</p>
+        <div class="search-container">
+          <input
+            type="text"
+            ngOsmSearchInput
+            [connectedMapId]="mapId"
+            [enableAutocomplete]="true"
+            [showSuggestionsDropdown]="true"
+            [debounceMs]="500"
+            [maxResults]="3"
+            [minQueryLength]="3"
+            placeholder="Advanced search (min 3 chars, 500ms delay)..."
+            class="search-input"
+            (search)="onSearchInputSearch($event)">
+        </div>
+      </div>
 
+      <!-- Custom Template -->
+      <div class="demo-subsection">
+        <h3>🎨 Custom Template Search Input</h3>
+        <p>Search input with custom template for autocomplete suggestions:</p>
         <div class="search-container">
           <input
             type="text"
@@ -72,10 +113,10 @@
         </div>
       </div>
 
+      <!-- Multiple Search Inputs -->
       <div class="demo-subsection">
-        <h3>Multiple Search Inputs</h3>
-        <p>Multiple search inputs connected to the same map:</p>
-
+        <h3>🔄 Multiple Search Inputs</h3>
+        <p>Multiple search inputs connected to the same map with different configurations:</p>
         <div class="multi-search-container">
           <input
             type="text"
@@ -83,7 +124,9 @@
             [connectedMapId]="mapId"
             [enableAutocomplete]="true"
             [showSuggestionsDropdown]="true"
-            placeholder="Search input 1..."
+            [debounceMs]="150"
+            [maxResults]="8"
+            placeholder="Fast search (150ms delay, 8 results)..."
             class="search-input small"
             (search)="onSearchInputSearch($event)">
 
@@ -93,21 +136,28 @@
             [connectedMapId]="mapId"
             [enableAutocomplete]="true"
             [showSuggestionsDropdown]="true"
-            placeholder="Search input 2..."
+            [debounceMs]="800"
+            [maxResults]="3"
+            [minQueryLength]="4"
+            placeholder="Slow search (800ms delay, 3 results, min 4 chars)..."
             class="search-input small"
             (search)="onSearchInputSearch($event)">
         </div>
       </div>
 
+      <!-- Search Event Log -->
       <div class="demo-subsection">
-        <h3>Search Event Log</h3>
+        <h3>📊 Live Search Event Log</h3>
         <div class="event-log">
-          <div *ngFor="let event of searchEventLog" class="event-item">
+          <div *ngFor="let event of searchEventLog.slice(0, 10)" class="event-item">
             <strong>{{ event.type }}:</strong> {{ event.message }}
             <small>{{ event.timestamp | date:'HH:mm:ss' }}</small>
           </div>
           <div *ngIf="searchEventLog.length === 0" class="no-events">
             No search events yet. Try using the search inputs above!
+          </div>
+          <div *ngIf="searchEventLog.length > 10" class="more-events">
+            ... and {{ searchEventLog.length - 10 }} more events
           </div>
         </div>
       </div>
@@ -236,8 +286,19 @@
               🗑️ Clear Cache
             </button>
           </div>
+          <div *ngIf="isReadonlyMode()" class="mt-2">
+            <button class="btn btn-sm"
+                    [class.btn-info]="isScrollInReadonlyEnabled()"
+                    [class.btn-outline-secondary]="!isScrollInReadonlyEnabled()"
+                    (click)="toggleScrollInReadonlyMode()">
+              {{ isScrollInReadonlyEnabled() ? '🖱️ Scroll Zoom Enabled' : '🖱️ Enable Scroll Zoom' }}
+            </button>
+          </div>
           <p class="readonly-info">
             <strong>Mode:</strong> {{ isReadonlyMode() ? 'Readonly (interactions disabled)' : 'Interactive' }}
+            <span *ngIf="isReadonlyMode() && isScrollInReadonlyEnabled()" class="badge bg-info text-white ms-2">
+              Scroll Zoom Allowed
+            </span>
           </p>
         </div>
 

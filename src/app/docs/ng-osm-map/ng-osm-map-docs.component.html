@@ -66,53 +66,395 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
     <section class="docs-section">
       <h2>API Reference</h2>
 
-      <h3>NgOsmMapComponent</h3>
-      <h4>Inputs</h4>
-      <ul class="api-list">
-        <li><code>pins: PinObject[]</code> - Array of pins to display</li>
-        <li><code>zoomInto: LocationObject</code> - Location to center and zoom to</li>
-        <li><code>highlightAreas: HighlightArea[]</code> - Areas to highlight</li>
-        <li><code>mapOptions: MapOptions</code> - Map configuration options</li>
-        <li><code>height: number</code> - Map height in pixels</li>
-        <li><code>width: string | number</code> - Map width</li>
-      </ul>
+      <!-- NgOsmMapComponent -->
+      <div class="api-section">
+        <h3>NgOsmMapComponent</h3>
+        <p>The main component for embedding interactive maps. This is a wrapper component that provides a clean Angular component interface.</p>
+        
+        <h4>Selector</h4>
+        <code>&lt;ng-osm-map&gt;&lt;/ng-osm-map&gt;</code>
 
-      <h4>Outputs</h4>
-      <ul class="api-list">
-        <li><code>mapClick: EventEmitter&lt;MapClickEvent&gt;</code> - Map click events</li>
-        <li><code>locationSelected: EventEmitter&lt;LocationObject&gt;</code> - Location selection events</li>
-        <li><code>searchResult: EventEmitter&lt;SearchResult&gt;</code> - Search result events</li>
-        <li><code>pinDragged: EventEmitter&lt;PinDragEvent&gt;</code> - Pin drag events</li>
-        <li><code>autocompleteResults: EventEmitter&lt;AutocompleteSuggestion[]&gt;</code> - Autocomplete events</li>
-        <li><code>pinDeleted: EventEmitter&lt;PinDeleteEvent&gt;</code> - Pin deletion events</li>
-        <li><code>selectionChanged: EventEmitter&lt;SelectedLocation[]&gt;</code> - Selection change events</li>
-      </ul>
+        <h4>Input Properties</h4>
+        <div class="api-table-container">
+          <table class="api-table">
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Type</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>pins</code></td>
+                <td><code>PinObject[]</code></td>
+                <td><code>[]</code></td>
+                <td>Array of pins to display on the map</td>
+              </tr>
+              <tr>
+                <td><code>zoomInto</code></td>
+                <td><code>LocationObject</code></td>
+                <td><code>undefined</code></td>
+                <td>Location to center and zoom the map to</td>
+              </tr>
+              <tr>
+                <td><code>highlightAreas</code></td>
+                <td><code>HighlightArea[]</code></td>
+                <td><code>[]</code></td>
+                <td>Areas to highlight with custom styling</td>
+              </tr>
+              <tr>
+                <td><code>mapOptions</code></td>
+                <td><code>MapOptions</code></td>
+                <td><code>{{ '{' }}{{ '}' }}</code></td>
+                <td>Map configuration and behavior options</td>
+              </tr>
+              <tr>
+                <td><code>mapId</code></td>
+                <td><code>string</code></td>
+                <td><code>undefined</code></td>
+                <td>Unique identifier for connecting search inputs</td>
+              </tr>
+              <tr>
+                <td><code>preSelectedLocations</code></td>
+                <td><code>LocationObject[]</code></td>
+                <td><code>[]</code></td>
+                <td>Locations to pre-select without triggering events</td>
+              </tr>
+              <tr>
+                <td><code>height</code></td>
+                <td><code>number | string</code></td>
+                <td><code>400</code></td>
+                <td>Map height in pixels or CSS value</td>
+              </tr>
+              <tr>
+                <td><code>width</code></td>
+                <td><code>number | string</code></td>
+                <td><code>'100%'</code></td>
+                <td>Map width in pixels or CSS value</td>
+              </tr>
+              <tr>
+                <td><code>selectedLocation</code></td>
+                <td><code>LocationObject</code></td>
+                <td><code>undefined</code></td>
+                <td><em>(Deprecated)</em> Use preSelectedLocations instead</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Output Events</h4>
+        <div class="api-table-container">
+          <table class="api-table">
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>mapClick</code></td>
+                <td><code>EventEmitter&lt;MapClickEvent&gt;</code></td>
+                <td>Fired when the map is clicked</td>
+              </tr>
+              <tr>
+                <td><code>locationSelected</code></td>
+                <td><code>EventEmitter&lt;MapClickEvent&gt;</code></td>
+                <td>Fired when a location is selected</td>
+              </tr>
+              <tr>
+                <td><code>searchResult</code></td>
+                <td><code>EventEmitter&lt;SearchResult&gt;</code></td>
+                <td>Fired when a search produces results</td>
+              </tr>
+              <tr>
+                <td><code>pinDragged</code></td>
+                <td><code>EventEmitter&lt;PinDragEvent&gt;</code></td>
+                <td>Fired when a pin is dragged to a new location</td>
+              </tr>
+              <tr>
+                <td><code>autocompleteResults</code></td>
+                <td><code>EventEmitter&lt;AutocompleteSuggestion[]&gt;</code></td>
+                <td>Fired when autocomplete suggestions are available</td>
+              </tr>
+              <tr>
+                <td><code>pinDeleted</code></td>
+                <td><code>EventEmitter&lt;PinDeleteEvent&gt;</code></td>
+                <td>Fired when a pin is deleted</td>
+              </tr>
+              <tr>
+                <td><code>selectionChanged</code></td>
+                <td><code>EventEmitter&lt;SelectedLocation[]&gt;</code></td>
+                <td>Fired when the selection state changes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- NgOsmMapDirective -->
+      <div class="api-section">
+        <h3>NgOsmMapDirective</h3>
+        <p>The core directive that provides map functionality. Use this directive when you need more control or want to apply map functionality to existing elements.</p>
+        
+        <h4>Selector</h4>
+        <code>[ngOsmMap]</code>
+
+        <h4>Input Properties</h4>
+        <div class="api-table-container">
+          <table class="api-table">
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Type</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>pins</code></td>
+                <td><code>PinObject[]</code></td>
+                <td><code>[]</code></td>
+                <td>Array of pins to display on the map</td>
+              </tr>
+              <tr>
+                <td><code>zoomInto</code></td>
+                <td><code>LocationObject</code></td>
+                <td><code>undefined</code></td>
+                <td>Location to center and zoom the map to</td>
+              </tr>
+              <tr>
+                <td><code>highlightAreas</code></td>
+                <td><code>HighlightArea[]</code></td>
+                <td><code>[]</code></td>
+                <td>Areas to highlight with custom styling</td>
+              </tr>
+              <tr>
+                <td><code>mapOptions</code></td>
+                <td><code>MapOptions</code></td>
+                <td><code>{{ '{' }}{{ '}' }}</code></td>
+                <td>Map configuration and behavior options</td>
+              </tr>
+              <tr>
+                <td><code>mapId</code></td>
+                <td><code>string</code></td>
+                <td><code>undefined</code></td>
+                <td>Unique identifier for connecting search inputs</td>
+              </tr>
+              <tr>
+                <td><code>preSelectedLocations</code></td>
+                <td><code>LocationObject[]</code></td>
+                <td><code>[]</code></td>
+                <td>Locations to pre-select without triggering events</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Output Events</h4>
+        <p><em>Same events as NgOsmMapComponent - see above</em></p>
+      </div>
+
+      <!-- NgOsmSearchInputDirective -->
+      <div class="api-section">
+        <h3>NgOsmSearchInputDirective</h3>
+        <p>A directive that transforms any input element into a smart search input with autocomplete functionality, connected to a map instance.</p>
+        
+        <h4>Selector</h4>
+        <code>[ngOsmSearchInput]</code>
+
+        <h4>Input Properties</h4>
+        <div class="api-table-container">
+          <table class="api-table">
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Type</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>connectedMapId</code></td>
+                <td><code>string</code></td>
+                <td><code>undefined</code></td>
+                <td>ID of the map component to connect to</td>
+              </tr>
+              <tr>
+                <td><code>enableAutocomplete</code></td>
+                <td><code>boolean</code></td>
+                <td><code>true</code></td>
+                <td>Enable/disable autocomplete suggestions</td>
+              </tr>
+              <tr>
+                <td><code>showSuggestionsDropdown</code></td>
+                <td><code>boolean</code></td>
+                <td><code>true</code></td>
+                <td>Show built-in dropdown with suggestions</td>
+              </tr>
+              <tr>
+                <td><code>debounceMs</code></td>
+                <td><code>number</code></td>
+                <td><code>300</code></td>
+                <td>Delay in ms before triggering autocomplete search</td>
+              </tr>
+              <tr>
+                <td><code>maxResults</code></td>
+                <td><code>number</code></td>
+                <td><code>5</code></td>
+                <td>Maximum number of autocomplete suggestions</td>
+              </tr>
+              <tr>
+                <td><code>minQueryLength</code></td>
+                <td><code>number</code></td>
+                <td><code>2</code></td>
+                <td>Minimum characters before showing suggestions</td>
+              </tr>
+              <tr>
+                <td><code>placeholder</code></td>
+                <td><code>string</code></td>
+                <td><code>'Search location...'</code></td>
+                <td>Placeholder text for the input field</td>
+              </tr>
+              <tr>
+                <td><code>autoFocus</code></td>
+                <td><code>boolean</code></td>
+                <td><code>false</code></td>
+                <td>Auto-focus input when component loads</td>
+              </tr>
+              <tr>
+                <td><code>dropdownContainer</code></td>
+                <td><code>string | HTMLElement</code></td>
+                <td><code>undefined</code></td>
+                <td>Container for autocomplete dropdown positioning</td>
+              </tr>
+              <tr>
+                <td><code>customSearchTemplate</code></td>
+                <td><code>TemplateRef&lt;AutocompleteSearchContext&gt;</code></td>
+                <td><code>undefined</code></td>
+                <td>Custom template for rendering suggestions</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Output Events</h4>
+        <div class="api-table-container">
+          <table class="api-table">
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>search</code></td>
+                <td><code>EventEmitter&lt;string&gt;</code></td>
+                <td>Fired when user performs a direct search</td>
+              </tr>
+              <tr>
+                <td><code>suggestionSelected</code></td>
+                <td><code>EventEmitter&lt;AutocompleteSuggestion&gt;</code></td>
+                <td>Fired when user selects a suggestion</td>
+              </tr>
+              <tr>
+                <td><code>autocompleteResults</code></td>
+                <td><code>EventEmitter&lt;AutocompleteSuggestion[]&gt;</code></td>
+                <td>Fired when new suggestions are available</td>
+              </tr>
+              <tr>
+                <td><code>inputChange</code></td>
+                <td><code>EventEmitter&lt;string&gt;</code></td>
+                <td>Fired on every input value change</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <section class="docs-section">
-      <h2>Interfaces</h2>
+      <h2>Advanced Features</h2>
+
+      <h3>Geocoding</h3>
+      <p>The library includes built-in geocoding services using OpenStreetMap Nominatim API.</p>
+
+      <h3>Search and Autocomplete</h3>
+      <p>Integrated search functionality with autocomplete suggestions.</p>
+
+      <h3>Selection System</h3>
+      <p>Advanced selection system supporting both single and multi-select modes with pre-selected locations.</p>
+
+      <div class="code-block">
+        <pre><code>// Configure selection options
+mapOptions: MapOptions = &#123;
+  enableClickSelect: true,
+  selection: &#123;
+    multiSelect: true,        // Enable multi-selection
+    maxSelections: 5,         // Limit to 5 selections
+    createPinsForSelections: true,
+    selectionPin: &#123;         // Custom pin for selections
+      color: '#4CAF50',
+      title: 'Selected Location'
+    &#125;
+  &#125;,
+  preSelectedLocations: [     // Pre-selected locations (no events)
+    &#123; latitude: 50.0755, longitude: 14.4378 &#125;, // Prague
+    &#123; latitude: 47.4979, longitude: 19.0402 &#125;  // Budapest
+  ]
+&#125;;
+
+// Handle selection changes
+onSelectionChanged(selections: SelectedLocation[]) &#123;
+  selections.forEach(selection => &#123;
+    console.log('Selected:', selection.id);
+
+    // Access address information
+    const city = selection.addressInfo?.address?.city;
+    const country = selection.addressInfo?.address?.country;
+    console.log(`Location: $&#123;city&#125;, $&#123;country&#125;`);
+  &#125;);
+&#125;</code></pre>
+      </div>
+
+      <h3>Multiple Tile Layers</h3>
+      <p>Support for various map tile providers including OpenStreetMap, satellite imagery, and custom themes.</p>
+    </section>
+
+    <section class="docs-section">
+      <h2>Key Interfaces</h2>
 
       <h3>PinObject</h3>
       <div class="code-block">
         <pre><code>interface PinObject {{ '{' }}
-  title?: string;
-  coordinates?: Coordinates;
-  address?: string;
-  color?: string;
-  htmlContent?: string;
-  icon?: string;
-  draggable?: boolean;
-  template?: TemplateRef&lt;PinPopupContext&gt;;
-  data?: any;
+  location: LocationObject;           // Pin location
+  color?: string;                     // Pin color (hex, rgb, named)
+  content?: string;                   // HTML popup content
+  popupTemplate?: TemplateRef&lt;PinPopupContext&gt;;  // Custom popup template
+  title?: string;                     // Pin title
+  icon?: string | PinIcon;            // Custom icon
+  draggable?: boolean;                // Whether pin is draggable
+  data?: any;                         // Custom data
 {{ '}' }}</code></pre>
       </div>
 
       <h3>LocationObject</h3>
       <div class="code-block">
         <pre><code>interface LocationObject {{ '{' }}
-  latitude: number;
-  longitude: number;
-  addressInfo?: AddressInfo;
+  latitude?: number;      // Latitude coordinate
+  longitude?: number;     // Longitude coordinate
+  address?: string;       // Address for geocoding
+  state?: string;         // State/province
+  country?: string;       // Country
+  zipCode?: string;       // ZIP/postal code
+  city?: string;          // City
 {{ '}' }}</code></pre>
       </div>
 
@@ -140,6 +482,56 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
 {{ '}' }}</code></pre>
       </div>
 
+      <h3>AutocompleteSuggestion</h3>
+      <div class="code-block">
+        <pre><code>interface AutocompleteSuggestion {{ '{' }}
+  displayText: string;           // Main display name
+  fullDisplayName: string;       // Full formatted address
+  coordinates: {{ '{' }}
+    latitude: number;
+    longitude: number;
+  {{ '}' }};
+  boundingBox?: {{ '{' }}               // Optional bounding area
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  {{ '}' }};
+  importance?: number;           // Relevance score (0-1)
+  category?: string;             // Location type (city, restaurant, etc.)
+  address?: {{ '{' }}                   // Structured address components
+    house_number?: string;
+    road?: string;
+    city?: string;
+    state?: string;
+    postcode?: string;
+    country?: string;
+  {{ '}' }};
+{{ '}' }}</code></pre>
+      </div>
+
+      <h3>MapClickEvent</h3>
+      <div class="code-block">
+        <pre><code>interface MapClickEvent {{ '{' }}
+  coordinates: {{ '{' }}              // Clicked location
+    latitude: number;
+    longitude: number;
+  {{ '}' }};
+  addressInfo?: {{ '{' }}             // Address information (if available)
+    display_name?: string;
+    address?: {{ '{' }}
+      house_number?: string;
+      road?: string;
+      city?: string;
+      state?: string;
+      postcode?: string;
+      country?: string;
+    {{ '}' }};
+  {{ '}' }};
+  originalEvent?: any;        // Original Leaflet event
+{{ '}' }}</code></pre>
+      </div>
+
       <p><strong>Note:</strong> Address information (city, state, country, zipcode) is accessed through the
       <code>addressInfo.address</code> object rather than direct properties. For example:</p>
       <div class="code-block">
@@ -159,20 +551,20 @@ const zipcode = selection.addressInfo?.address?.postcode;</code></pre>
         <pre><code>export class MyComponent {{ '{' }}
   pins: PinObject[] = [
     {{ '{' }}
+      location: {{ '{' }} latitude: 40.7128, longitude: -74.0060 {{ '}' }},
       title: 'New York',
-      coordinates: {{ '{' }} latitude: 40.7128, longitude: -74.0060 {{ '}' }},
       color: 'red',
       draggable: true
     {{ '}' }},
     {{ '{' }}
+      location: {{ '{' }} address: 'London, UK' {{ '}' }},
       title: 'London',
-      address: 'London, UK',
       color: 'blue'
     {{ '}' }}
   ];
 
   onMapClick(event: MapClickEvent) {{ '{' }}
-    console.log('Map clicked:', event.location);
+    console.log('Map clicked:', event.coordinates);
   {{ '}' }}
 {{ '}' }}</code></pre>
       </div>
@@ -181,60 +573,59 @@ const zipcode = selection.addressInfo?.address?.postcode;</code></pre>
       <div class="code-block">
         <pre><code>&lt;ng-template #customPopup let-location let-pin="pin" let-deletePin="deletePin"&gt;
   &lt;div&gt;
-    &lt;h3&gt;{{ '{{' }} pin.title {{ '}}' }}&lt;/h3&gt;
-    &lt;p&gt;Lat: {{ '{{' }} location.latitude {{ '}}' }}, Lng: {{ '{{' }} location.longitude {{ '}}' }}&lt;/p&gt;
+    &lt;h3&gt;&amp;#123;&amp;#123; pin.title &amp;#125;&amp;#125;&lt;/h3&gt;
+    &lt;p&gt;Lat: &amp;#123;&amp;#123; location.latitude &amp;#125;&amp;#125;, Lng: &amp;#123;&amp;#123; location.longitude &amp;#125;&amp;#125;&lt;/p&gt;
     &lt;button (click)="deletePin()"&gt;Delete Pin&lt;/button&gt;
   &lt;/div&gt;
 &lt;/ng-template&gt;</code></pre>
       </div>
-    </section>
 
-    <section class="docs-section">
-      <h2>Advanced Features</h2>
-
-      <h3>Geocoding</h3>
-      <p>The library includes built-in geocoding services using OpenStreetMap Nominatim API.</p>
-
-      <h3>Search and Autocomplete</h3>
-      <p>Integrated search functionality with autocomplete suggestions.</p>
-
-      <h3>Selection System</h3>
-      <p>Advanced selection system supporting both single and multi-select modes with pre-selected locations.</p>
-
+      <h3>Advanced Configuration Example</h3>
       <div class="code-block">
-        <pre><code>// Configure selection options
-mapOptions: MapOptions = {{ '{' }}
-  enableClickSelect: true,
-  selection: {{ '{' }}
-    multiSelect: true,        // Enable multi-selection
-    maxSelections: 5,         // Limit to 5 selections
-    createPinsForSelections: true,
-    selectionPin: {{ '{' }}         // Custom pin for selections
-      color: '#4CAF50',
-      title: 'Selected Location'
-    {{ '}' }}
-  {{ '}' }},
-  preSelectedLocations: [     // Pre-selected locations (no events)
+        <pre><code>export class AdvancedMapComponent {{ '{' }}
+  mapOptions: MapOptions = {{ '{' }}
+    zoom: 12,
+    enableClickSelect: true,
+    readonly: false,
+    selection: {{ '{' }}
+      multiSelect: true,
+      maxSelections: 5,
+      createPinsForSelections: true,
+      autoZoomToSelection: true,
+      selectionZoomLevel: 15,
+      animatedZoom: true,
+      selectionPin: {{ '{' }}
+        color: '#4CAF50',
+        title: 'Selected Location'
+      {{ '}' }}
+    {{ '}' }},
+    tileLayerType: 'satellite',
+    enableLayerControl: true,
+    mapBounds: {{ '{' }}
+      southWest: [50.0, -10.0],
+      northEast: [60.0, 5.0]
+    {{ '}' }},
+    noWrap: true
+  {{ '}' }};
+
+  preSelectedLocations: LocationObject[] = [
     {{ '{' }} latitude: 50.0755, longitude: 14.4378 {{ '}' }}, // Prague
     {{ '{' }} latitude: 47.4979, longitude: 19.0402 {{ '}' }}  // Budapest
-  ]
-{{ '}' }};
+  ];
 
-// Handle selection changes
-onSelectionChanged(selections: SelectedLocation[]) {{ '{' }}
-  selections.forEach(selection => {{ '{' }}
-    console.log('Selected:', selection.id);
+  // Handle selection changes
+  onSelectionChanged(selections: SelectedLocation[]) {{ '{' }}
+    selections.forEach(selection =&gt; {{ '{' }}
+      console.log('Selected:', selection.id);
 
-    // Access address information
-    const city = selection.addressInfo?.address?.city;
-    const country = selection.addressInfo?.address?.country;
-    console.log(`Location: ${{ '{' }}city{{ '}' }}, ${{ '{' }}country{{ '}' }}`);
-  {{ '}' }});
+      // Access address information
+      const city = selection.addressInfo?.address?.city;
+      const country = selection.addressInfo?.address?.country;
+      console.log(`Location: ${{ '{' }}city{{ '}' }}, ${{ '{' }}country{{ '}' }}`);
+    {{ '}' }});
+  {{ '}' }}
 {{ '}' }}</code></pre>
       </div>
-
-      <h3>Multiple Tile Layers</h3>
-      <p>Support for various map tile providers including OpenStreetMap, satellite imagery, and custom themes.</p>
     </section>
 
     <section class="docs-section">

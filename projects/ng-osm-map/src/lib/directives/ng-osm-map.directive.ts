@@ -25,6 +25,7 @@ import { LocationObject, PinObject, HighlightArea, MapOptions, MapClickEvent, Se
 import { GeocodingService } from '../services/geocoding.service';
 import { AutocompleteService } from '../services/autocomplete.service';
 import { TileLayerService } from '../services/tile-layer.service';
+import { NgOsmSearchConnectionService } from '../services/ng-osm-search-connection.service';
 
 @Directive({
   selector: '[ngOsmMap]',
@@ -58,10 +59,13 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
   private clickSelectEnabled = false;
   private autocompleteDropdown?: HTMLElement;
   private externalSearchInput?: HTMLInputElement;
+  private externalSearchCleanup?: () => void;
   private selectedLocations: SelectedLocation[] = [];
   private selectionCounter = 0;
   private embeddedViews: Map<number, EmbeddedViewRef<PinPopupContext>> = new Map();
   private coordinatesCache: Map<string, { lat: number; lng: number }> = new Map();
+  private searchConnectionSubscription?: any;
+  private suggestionConnectionSubscription?: any;
   private defaultOptions: MapOptions = {
     zoom: 13,
     minZoom: 1,
@@ -82,12 +86,14 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
     private autocompleteService: AutocompleteService,
     private tileLayerService: TileLayerService,
     private ngZone: NgZone,
-     private injector: Injector
+    private injector: Injector,
+    private searchConnectionService: NgOsmSearchConnectionService
   ) {}
 
   ngOnInit(): void {
     if (isPlatformBrowser(this.platformId)) {
       this.initializeMap();
+      this.setupSearchInputConnections();
     }
   }
 
@@ -98,6 +104,19 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
 
     // Clear coordinates cache
     this.coordinatesCache.clear();
+
+    // Cleanup external search input
+    if (this.externalSearchCleanup) {
+      this.externalSearchCleanup();
+    }
+
+    // Cleanup search input connections
+    if (this.searchConnectionSubscription) {
+      this.searchConnectionSubscription.unsubscribe();
+    }
+    if (this.suggestionConnectionSubscription) {
+      this.suggestionConnectionSubscription.unsubscribe();
+    }
 
     if (this.map) {
       this.map.remove();
@@ -147,7 +166,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
         minZoom: options.minZoom,
         maxZoom: options.maxZoom,
         zoomControl: options.readonly ? false : options.zoomControl,
-        scrollWheelZoom: options.readonly ? false : options.scrollWheelZoom,
+        scrollWheelZoom: options.readonly ? (options.scrollWheelZoomInReadonly === true) : options.scrollWheelZoom,
         doubleClickZoom: options.readonly ? false : options.doubleClickZoom,
         dragging: options.readonly ? false : true,
         touchZoom: options.readonly ? false : true,
@@ -180,8 +199,8 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
         this.enableClickSelect();
       }
 
-      // Setup external search input if configured and not readonly
-      if (options.searchInput?.enableExternalBinding && !options.readonly) {
+      // Setup external search input if configured
+      if (options.searchInput?.enableExternalBinding) {
         this.setupExternalSearchInput();
       }
 
@@ -1160,8 +1179,22 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
 
     this.externalSearchInput = inputElement;
 
-    // Auto-focus if configured
-    if (inputConfig.autoFocus) {
+    // Set readonly state if needed (unless overrideReadonlyMode is enabled)
+    const isReadonlyInput = this.mapOptions.readonly && !inputConfig.overrideReadonlyMode;
+    if (isReadonlyInput) {
+      inputElement.disabled = true;
+      inputElement.style.opacity = '0.6';
+      inputElement.title = 'Search is disabled in readonly mode';
+    } else {
+      inputElement.disabled = false;
+      inputElement.style.opacity = '';
+      inputElement.title = inputConfig.overrideReadonlyMode && this.mapOptions.readonly
+        ? 'Search enabled (overriding readonly mode)'
+        : '';
+    }
+
+    // Auto-focus if configured and input is not readonly
+    if (inputConfig.autoFocus && !isReadonlyInput) {
       setTimeout(() => inputElement.focus(), 100);
     }
 
@@ -1170,8 +1203,39 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
       this.setupAutocompleteDropdown(inputElement, inputConfig);
     }
 
-    // Handle search on input events
+    // Handle search on input events (only if not readonly)
     let searchTimeout: any;
+
+    const handleInput = (e: Event) => {
+      if (this.mapOptions.readonly) return; // Block input in readonly modeoverridden)
+
+      const target = e.target as HTMLInputElement;
+      const query = target.value.trim();
+
+      // Clear previous timeout
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+
+      if (query.length >= 2) {
+        // Get autocomplete suggestions if enabled
+        if (inputConfig.showSuggestionsDropdown && this.mapOptions.search?.autocomplete?.enabled) {
+          const autocompleteOptions = this.mapOptions.search.autocomplete;
+
+          searchTimeout = setTimeout(() => {
+            this.autocompleteService.getSuggestions(query, autocompleteOptions?.maxResults || 5).subscribe(suggestions => {
+              this.showAutocompleteSuggestions(suggestions, inputElement);
+
+              this.ngZone.run(() => {
+                this.autocompleteResults.emit(suggestions);
+              });
+            });
+          }, autocompleteOptions?.debounceMs || 300);
+        }
+      } else {
+        this.hideAutocompleteSuggestions();
+      }
+    };
 
     inputElement.addEventListener('input', (e: Event) => {
       const target = e.target as HTMLInputElement;
@@ -1203,25 +1267,83 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
     });
 
     // Handle search on Enter key
-    inputElement.addEventListener('keydown', (e: KeyboardEvent) => {
+    const handleKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        if (this.mapOptions.readonly) return; // Block search in readonly modeoverridden)
+
         const query = inputElement.value.trim();
         if (query) {
-          this.handleSearch(query);
+          this.performExternalSearch(query, inputElement);
           this.hideAutocompleteSuggestions();
         }
       } else if (e.key === 'Escape') {
         this.hideAutocompleteSuggestions();
       }
-    });
+    };
 
     // Handle search on blur (optional)
-    inputElement.addEventListener('blur', () => {
+    const handleBlur = () => {
       // Small delay to allow clicking on suggestions
       setTimeout(() => {
         this.hideAutocompleteSuggestions();
       }, 200);
+    };
+
+    inputElement.addEventListener('input', handleInput);
+    inputElement.addEventListener('keydown', handleKeydown);
+    inputElement.addEventListener('blur', handleBlur);
+
+    // Store cleanup function
+    this.externalSearchCleanup = () => {
+      inputElement.removeEventListener('input', handleInput);
+      inputElement.removeEventListener('keydown', handleKeydown);
+      inputElement.removeEventListener('blur', handleBlur);
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }
+
+  /**
+   * Perform external search and handle result selection
+   */
+  private performExternalSearch(query: string, inputElement: HTMLInputElement): void {
+    if (!query || !this.map) return;
+
+    const locationObj: LocationObject = { address: query };
+
+    this.geocodingService.resolveLocation(locationObj).subscribe(coords => {
+      if (coords && this.map) {
+        // Get address information for the result
+        this.geocodingService.reverseGeocode(coords.lat, coords.lng).subscribe(addressInfo => {
+          const searchResult: SearchResult = {
+            coordinates: { latitude: coords.lat, longitude: coords.lng },
+            displayName: addressInfo || query,
+            address: this.parseAddressFromDisplayName(addressInfo || '')
+          };
+
+          // Create a map click event for selection handling
+          const searchClickEvent: MapClickEvent = {
+            coordinates: { latitude: coords.lat, longitude: coords.lng },
+            addressInfo: addressInfo ? {
+              display_name: addressInfo,
+              address: this.parseAddressFromDisplayName(addressInfo)
+            } : undefined
+          };
+
+          // Handle as search result selection (this will create pins and trigger selection)
+          this.handleLocationSelection(searchClickEvent, 'search-result');
+
+          // Update input with result
+          inputElement.value = searchResult.displayName;
+
+          // Emit search result event
+          this.ngZone.run(() => {
+            this.searchResult.emit(searchResult);
+          });
+        });
+      }
     });
   }
 
@@ -1373,7 +1495,7 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
 
     this.currentTileLayer.addTo(this.map);
     this.tileLayers[tileLayerConfig.name] = this.currentTileLayer;
-    
+
     // For hybrid layer or satellite with labels, add the label overlay
     if ((tileLayerConfig.type === 'hybrid' || tileLayerConfig.type === 'satellite') && tileLayerConfig.labelUrl) {
       const labelLayer = L.tileLayer(tileLayerConfig.labelUrl, {
@@ -1385,7 +1507,7 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
         noWrap: options.noWrap || false
       });
       labelLayer.addTo(this.map);
-      
+
       // Store the label layer for later reference
       this._hybridLabelLayer = labelLayer;
     }
@@ -1449,7 +1571,7 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
     if (this.currentTileLayer) {
       this.map.removeLayer(this.currentTileLayer);
     }
-    
+
     // Remove existing label layer if present
     if (this._hybridLabelLayer) {
       this.map.removeLayer(this._hybridLabelLayer);
@@ -1466,7 +1588,7 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
     });
 
     this.currentTileLayer.addTo(this.map);
-    
+
     // For hybrid layer or satellite with labels, add the label overlay
     if ((layerType === 'hybrid' || layerType === 'satellite') && layerConfig.labelUrl) {
       const labelLayer = L.tileLayer(layerConfig.labelUrl, {
@@ -1478,7 +1600,7 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
         noWrap: this.mapOptions?.noWrap || false
       });
       labelLayer.addTo(this.map);
-      
+
       // Store the label layer for later reference
       this._hybridLabelLayer = labelLayer;
     }
@@ -1986,7 +2108,14 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
       this.map.dragging.disable();
       this.map.touchZoom.disable();
       this.map.doubleClickZoom.disable();
-      this.map.scrollWheelZoom.disable();
+
+      // Disable scroll wheel zoom unless specifically enabled in readonly mode
+      if (this.mapOptions.scrollWheelZoomInReadonly !== true) {
+        this.map.scrollWheelZoom.disable();
+      } else {
+        this.map.scrollWheelZoom.enable();
+      }
+
       this.map.boxZoom.disable();
       this.map.keyboard.disable();
 
@@ -2028,6 +2157,9 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
 
     // Update all existing markers to respect readonly mode
     this.updateMarkersReadonlyMode(readonly);
+
+    // Update external search input readonly state
+    this.updateExternalSearchInputReadonlyState(readonly);
   }
 
   /**
@@ -2047,6 +2179,28 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
         }
       }
     });
+  }
+
+  /**
+   * Update external search input readonly state when map readonly mode changes
+   */
+  private updateExternalSearchInputReadonlyState(readonly: boolean): void {
+    if (!this.externalSearchInput || !this.mapOptions.searchInput?.enableExternalBinding) return;
+
+    const inputConfig = this.mapOptions.searchInput;
+    const isReadonlyInput = readonly && !inputConfig.overrideReadonlyMode;
+
+    if (isReadonlyInput) {
+      this.externalSearchInput.disabled = true;
+      this.externalSearchInput.style.opacity = '0.6';
+      this.externalSearchInput.title = 'Search is disabled in readonly mode';
+    } else {
+      this.externalSearchInput.disabled = false;
+      this.externalSearchInput.style.opacity = '';
+      this.externalSearchInput.title = inputConfig.overrideReadonlyMode && readonly
+        ? 'Search enabled (overriding readonly mode)'
+        : '';
+    }
   }
 
   /**
@@ -2105,10 +2259,54 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
       });
     } else {
       // Use instant zoom without animation
+
       this.map.setView([coords.latitude, coords.longitude], zoomLevel, {
         animate: false
       });
     }
   }
 
+  /**
+   * Setup connections to search input directives
+   */
+  private setupSearchInputConnections(): void {
+    if (!this.mapId) return; // Can't connect without a map ID
+
+    // Listen for search events from connected search inputs
+    this.searchConnectionSubscription = this.searchConnectionService.searchEvents$.subscribe(event => {
+      // Check if this search input is connected to this map
+      const isConnectedToThisMap = this.searchConnectionService.isConnected(event.searchInputId, this.mapId!);
+
+      if (isConnectedToThisMap) {
+        this.handleSearchInputSearch(event.query);
+      }
+    });
+
+    // Listen for suggestion selection events from connected search inputs
+    this.suggestionConnectionSubscription = this.searchConnectionService.suggestionSelectedEvents$.subscribe(event => {
+      // Check if this search input is connected to this map
+      const isConnectedToThisMap = this.searchConnectionService.isConnected(event.searchInputId, this.mapId!);
+
+      if (isConnectedToThisMap) {
+        this.handleSearchInputSuggestionSelected(event.suggestion);
+      }
+    });
+  }
+
+  /**
+   * Handle search from connected search input
+   */
+  private handleSearchInputSearch(query: string): void {
+    // Use the same search logic as the built-in search control
+    this.handleSearch(query);
+  }
+
+  /**
+   * Handle suggestion selection from connected search input
+   */
+  private handleSearchInputSuggestionSelected(suggestion: any): void {
+    // Use the same search logic as the built-in search control
+    // When a suggestion is selected, treat it as a search query
+    this.handleSearch(suggestion.displayText);
+  }
 }

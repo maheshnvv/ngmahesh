@@ -142,12 +142,6 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
       autoZoomToSelection: false, // Auto-zoom to selected location
       selectionZoom: 15, // Zoom level for selection
       animatedZoom: true // Use animated zoom
-    },
-    searchInput: {
-      enableExternalBinding: true,
-      inputElement: '#external-search-input',
-      showSuggestionsDropdown: true,
-      autoFocus: false
     }
   };
 
@@ -266,6 +260,18 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
       ...this.mapOptions,
       readonly: !currentReadonly
     } as any;
+  }
+
+  toggleScrollInReadonlyMode(): void {
+    const currentValue = (this.mapOptions as any).scrollWheelZoomInReadonly || false;
+    this.mapOptions = {
+      ...this.mapOptions,
+      scrollWheelZoomInReadonly: !currentValue
+    } as any;
+  }
+
+  isScrollInReadonlyEnabled(): boolean {
+    return (this.mapOptions as any).scrollWheelZoomInReadonly || false;
   }
 
   isReadonlyMode(): boolean {
