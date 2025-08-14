@@ -136,6 +136,8 @@ export interface MapOptions {
   preSelectedLocations?: LocationObject[];
   /** Enable readonly mode - disables all map interactions (zoom, pan, click, drag) */
   readonly?: boolean;
+  /** Allow scroll wheel zoom even in readonly mode */
+  scrollWheelZoomInReadonly?: boolean;
   /** Enable world boundaries - prevents panning outside of world bounds */
   enableWorldBounds?: boolean;
   /** Custom map boundaries - overrides world bounds if specified */
@@ -333,6 +335,8 @@ export interface SearchInputConfig {
   dropdownContainer?: string | HTMLElement;
   /** Auto-focus input on map load */
   autoFocus?: boolean;
+  /** Allow search input to work even when map is readonly */
+  overrideReadonlyMode?: boolean;
 }
 
 /**
