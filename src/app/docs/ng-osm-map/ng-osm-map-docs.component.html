@@ -70,7 +70,7 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
       <div class="api-section">
         <h3>NgOsmMapComponent</h3>
         <p>The main component for embedding interactive maps. This is a wrapper component that provides a clean Angular component interface.</p>
-        
+
         <h4>Selector</h4>
         <code>&lt;ng-osm-map&gt;&lt;/ng-osm-map&gt;</code>
 
@@ -120,7 +120,21 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
                 <td><code>preSelectedLocations</code></td>
                 <td><code>LocationObject[]</code></td>
                 <td><code>[]</code></td>
-                <td>Locations to pre-select without triggering events</td>
+                <td>
+                  Locations to pre-select without triggering selectionChanged events.
+                  Use for initial map state or silent programmatic selection.
+                  <br><em>For programmatic selection that should trigger events, use searchLocation property or searchForLocation() method instead.</em>
+                </td>
+              </tr>
+              <tr>
+                <td><code>searchLocation</code></td>
+                <td><code>LocationObject</code></td>
+                <td><code>undefined</code></td>
+                <td>
+                  Location to search for and select programmatically. Setting this property triggers
+                  the full selection workflow including geocoding, pin creation, and selectionChanged events.
+                  <strong>Recommended for programmatic selection.</strong>
+                </td>
               </tr>
               <tr>
                 <td><code>height</code></td>
@@ -188,7 +202,12 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
               <tr>
                 <td><code>selectionChanged</code></td>
                 <td><code>EventEmitter&lt;SelectedLocation[]&gt;</code></td>
-                <td>Fired when the selection state changes</td>
+                <td>
+                  Fired when locations are selected or deselected. Triggered by:
+                  map clicks, search results, external search inputs, and programmatic 
+                  selection via searchForLocation() or searchLocation property.
+                  <br><strong>Note:</strong> Not triggered by preSelectedLocations changes.
+                </td>
               </tr>
             </tbody>
           </table>
@@ -199,7 +218,7 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
       <div class="api-section">
         <h3>NgOsmMapDirective</h3>
         <p>The core directive that provides map functionality. Use this directive when you need more control or want to apply map functionality to existing elements.</p>
-        
+
         <h4>Selector</h4>
         <code>[ngOsmMap]</code>
 
@@ -249,7 +268,21 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
                 <td><code>preSelectedLocations</code></td>
                 <td><code>LocationObject[]</code></td>
                 <td><code>[]</code></td>
-                <td>Locations to pre-select without triggering events</td>
+                <td>
+                  Locations to pre-select without triggering selectionChanged events.
+                  Use for initial map state or silent programmatic selection.
+                  <br><em>For programmatic selection that should trigger events, use searchLocation property or searchForLocation() method instead.</em>
+                </td>
+              </tr>
+              <tr>
+                <td><code>searchLocation</code></td>
+                <td><code>LocationObject</code></td>
+                <td><code>undefined</code></td>
+                <td>
+                  Location to search for and select programmatically. Setting this property triggers
+                  the full selection workflow including geocoding, pin creation, and selectionChanged events.
+                  <strong>Recommended for programmatic selection.</strong>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -263,7 +296,7 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
       <div class="api-section">
         <h3>NgOsmSearchInputDirective</h3>
         <p>A directive that transforms any input element into a smart search input with autocomplete functionality, connected to a map instance.</p>
-        
+
         <h4>Selector</h4>
         <code>[ngOsmSearchInput]</code>
 
@@ -378,6 +411,47 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
           </table>
         </div>
       </div>
+
+      <!-- Public Methods -->
+      <div class="api-section">
+        <h3>Public Methods</h3>
+        <p>Methods available on both NgOsmMapComponent and NgOsmMapDirective instances.</p>
+
+        <h4>searchForLocation(locationObject: LocationObject): void</h4>
+        <p>
+          Programmatically search for and select a location. This method provides the same behavior as user interaction:
+        </p>
+        <ul>
+          <li>Performs geocoding if needed to resolve the location</li>
+          <li>Creates pins for the selection (if configured)</li>
+          <li>Emits selectionChanged events</li>
+          <li>Handles single/multi-select logic based on map options</li>
+          <li>Provides visual feedback</li>
+        </ul>
+        <p><strong>Recommended approach</strong> for programmatic selection when you want to trigger events.</p>
+        
+        <div class="code-block">
+          <pre><code>// Example usage
+this.mapComponent.searchForLocation({{ '{' }}
+  address: '1600 Pennsylvania Ave, Washington, DC'
+{{ '}' }});
+
+// With coordinates
+this.mapComponent.searchForLocation({{ '{' }}
+  latitude: 38.8977,
+  longitude: -77.0365
+{{ '}' }});</code></pre>
+        </div>
+
+        <h4>getSelectedLocations(): SelectedLocation[]</h4>
+        <p>Returns the current array of selected locations.</p>
+
+        <h4>clearSelections(): void</h4>
+        <p>Clears all selected locations and removes their pins.</p>
+
+        <h4>getMap(): L.Map | undefined</h4>
+        <p>Returns the underlying Leaflet map instance for advanced customization.</p>
+      </div>
     </section>
 
     <section class="docs-section">
@@ -392,6 +466,46 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
       <h3>Selection System</h3>
       <p>Advanced selection system supporting both single and multi-select modes with pre-selected locations.</p>
 
+      <h4>Programmatic Selection Approaches</h4>
+      <p>There are two ways to programmatically select locations, each with different behavior:</p>
+
+      <h5>1. preSelectedLocations (Silent Selection)</h5>
+      <p>Use for initial map state or when you don't want to trigger selection events:</p>
+      <div class="code-block">
+        <pre><code>// Silent selection - no selectionChanged events fired
+&lt;ng-osm-map
+  [preSelectedLocations]="initialLocations"
+  (selectionChanged)="onSelectionChanged($event)"&gt;
+&lt;/ng-osm-map&gt;
+
+initialLocations: LocationObject[] = [
+  &#123; latitude: 50.0755, longitude: 14.4378 &#125;, // Prague (silent)
+  &#123; latitude: 47.4979, longitude: 19.0402 &#125;  // Budapest (silent)
+];</code></pre>
+      </div>
+
+      <h5>2. searchLocation Property or searchForLocation() Method (Interactive Selection)</h5>
+      <p>Use when you want to trigger the full selection workflow including events:</p>
+      <div class="code-block">
+        <pre><code>// Interactive selection - triggers selectionChanged events
+&lt;ng-osm-map
+  [searchLocation]="targetLocation"
+  (selectionChanged)="onSelectionChanged($event)"&gt;
+&lt;/ng-osm-map&gt;
+
+// Or using the method approach
+&#64;ViewChild(NgOsmMapComponent) mapComponent!: NgOsmMapComponent;
+
+selectLocationProgrammatically() &#123;
+  // This WILL trigger selectionChanged event
+  this.mapComponent.searchForLocation(&#123;
+    address: '1600 Pennsylvania Ave, Washington, DC'
+  &#125;);
+&#125;</code></pre>
+      </div>
+
+      <h4>Selection Configuration</h4>
+
       <div class="code-block">
         <pre><code>// Configure selection options
 mapOptions: MapOptions = &#123;
@@ -404,15 +518,13 @@ mapOptions: MapOptions = &#123;
       color: '#4CAF50',
       title: 'Selected Location'
     &#125;
-  &#125;,
-  preSelectedLocations: [     // Pre-selected locations (no events)
-    &#123; latitude: 50.0755, longitude: 14.4378 &#125;, // Prague
-    &#123; latitude: 47.4979, longitude: 19.0402 &#125;  // Budapest
-  ]
+  &#125;
 &#125;;
 
-// Handle selection changes
+// Handle selection changes (NOT triggered by preSelectedLocations)
 onSelectionChanged(selections: SelectedLocation[]) &#123;
+  // This will only fire for user interactions, search results,
+  // and programmatic selection via searchForLocation()
   selections.forEach(selection => &#123;
     console.log('Selected:', selection.id);
 
@@ -609,12 +721,14 @@ const zipcode = selection.addressInfo?.address?.postcode;</code></pre>
   {{ '}' }};
 
   preSelectedLocations: LocationObject[] = [
-    {{ '{' }} latitude: 50.0755, longitude: 14.4378 {{ '}' }}, // Prague
-    {{ '{' }} latitude: 47.4979, longitude: 19.0402 {{ '}' }}  // Budapest
+    {{ '{' }} latitude: 50.0755, longitude: 14.4378 {{ '}' }}, // Prague (silent initial state)
+    {{ '{' }} latitude: 47.4979, longitude: 19.0402 {{ '}' }}  // Budapest (silent initial state)
   ];
 
-  // Handle selection changes
+  // Handle selection changes (NOT triggered by preSelectedLocations above)
   onSelectionChanged(selections: SelectedLocation[]) {{ '{' }}
+    // This event is only triggered by user interactions and programmatic
+    // selections via searchForLocation() or searchLocation property
     selections.forEach(selection =&gt; {{ '{' }}
       console.log('Selected:', selection.id);
 
@@ -622,6 +736,14 @@ const zipcode = selection.addressInfo?.address?.postcode;</code></pre>
       const city = selection.addressInfo?.address?.city;
       const country = selection.addressInfo?.address?.country;
       console.log(`Location: ${{ '{' }}city{{ '}' }}, ${{ '{' }}country{{ '}' }}`);
+    {{ '}' }});
+  {{ '}' }}
+  
+  // Example of programmatic selection that DOES trigger selectionChanged
+  selectWashingtonDC() {{ '{' }}
+    // This approach will trigger the selectionChanged event
+    this.mapComponent.searchForLocation({{ '{' }}
+      address: '1600 Pennsylvania Ave, Washington, DC'
     {{ '}' }});
   {{ '}' }}
 {{ '}' }}</code></pre>

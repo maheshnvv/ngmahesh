@@ -8,8 +8,10 @@ export interface LocationObject {
   latitude?: number;
   /** Longitude coordinate */
   longitude?: number;
-  /** Address string for geocoding */
+  /** Address line 1 / primary street address */
   address?: string;
+  /** Address line 2 (suite, apartment, etc.) */
+  addressLine2?: string; // Added for enriched geocoding fallback
   /** State/province */
   state?: string;
   /** Country */
