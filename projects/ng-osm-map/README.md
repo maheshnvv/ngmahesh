@@ -15,7 +15,10 @@ An Angular 18+ library for integrating OpenStreetMap with Leaflet, providing a s
 - 📍 **Flexible Pins**: Support for coordinates or address-based pins with custom colors and content
 - 🎯 **Smart Zoom**: Zoom to specific locations automatically
 - 🎨 **Area Highlighting**: Highlight areas with custom borders and colors
-- 🌍 **Geocoding**: Built-in OpenStreetMap geocoding support
+- 🌍 **Geocoding**: Built-in OpenStreetMap geocoding support with robust fallback ladder
+- 🔍 **Advanced Search**: Built-in search with autocomplete and external search input binding
+- ⚡ **Selection System**: Advanced selection system with single/multi-select modes
+- 🎯 **Programmatic Selection**: Multiple approaches for programmatic location selection
 - 📱 **Responsive**: Works on all screen sizes
 - 🎮 **Full Control**: Access to underlying Leaflet map instance
 
@@ -43,6 +46,8 @@ import { NgOsmMapDirective, PinObject, LocationObject } from '@ngmahesh/ng-osm-m
       [pins]="pins"
       [zoomInto]="centerLocation"
       [highlightAreas]="areas"
+      [searchLocation]="searchLocation"
+      (selectionChanged)="onSelectionChanged($event)"
       style="height: 400px; width: 100%;">
     </div>
   `
@@ -61,6 +66,66 @@ export class MapComponent {
     latitude: 40.7128,
     longitude: -74.0060
   };
+
+  searchLocation?: LocationObject;
+
+  onSelectionChanged(selections: any[]) {
+    console.log('Selections changed:', selections);
+  }
+  
+  // Programmatically select a location (triggers events)
+  selectLocation() {
+    this.searchLocation = {
+      address: '1600 Pennsylvania Ave, Washington, DC'
+    };
+  }
+}
+```
+
+## Programmatic Selection
+
+The library offers two approaches for programmatic location selection:
+
+### 1. Silent Selection (preSelectedLocations)
+Use for initial map state without triggering selection events:
+
+```typescript
+export class MapComponent {
+  // These locations will be selected but won't trigger selectionChanged events
+  preSelectedLocations: LocationObject[] = [
+    { latitude: 40.7128, longitude: -74.0060 }, // NYC
+    { latitude: 34.0522, longitude: -118.2437 } // LA
+  ];
+}
+```
+
+### 2. Interactive Selection (searchLocation / searchForLocation)
+Use when you want full selection behavior including events:
+
+```typescript
+export class MapComponent {
+  @ViewChild(NgOsmMapComponent) mapComponent!: NgOsmMapComponent;
+  
+  searchLocation?: LocationObject;
+
+  // Method 1: Using searchLocation property
+  selectUsingProperty() {
+    this.searchLocation = {
+      address: '1600 Pennsylvania Ave, Washington, DC'
+    };
+  }
+
+  // Method 2: Using searchForLocation method
+  selectUsingMethod() {
+    this.mapComponent.searchForLocation({
+      address: 'Times Square, New York, NY'
+    });
+  }
+
+  onSelectionChanged(selections: SelectedLocation[]) {
+    // This will be triggered by the above methods but NOT by preSelectedLocations
+    console.log('User or programmatic selection:', selections);
+  }
 }
 ```
 
@@ -89,6 +154,15 @@ onSelectionChanged(selections: SelectedLocation[]) {
   });
 }
 ```
+
+## Migration Notes
+
+### Deprecated APIs
+- **selectedLocation** (Input): Deprecated in favor of `preSelectedLocations` for silent selection or `searchLocation`/`searchForLocation()` for interactive selection
+
+### Event Behavior Changes
+- **selectionChanged** event is now triggered by: map clicks, search results, external search inputs, and `searchForLocation()`/`searchLocation` property
+- **selectionChanged** event is NOT triggered by `preSelectedLocations` changes (by design for silent initialization)
 
 ## 🤝 Contributing
 

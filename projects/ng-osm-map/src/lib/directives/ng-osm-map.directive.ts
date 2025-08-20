@@ -27,25 +27,84 @@ import { AutocompleteService } from '../services/autocomplete.service';
 import { TileLayerService } from '../services/tile-layer.service';
 import { NgOsmSearchConnectionService } from '../services/ng-osm-search-connection.service';
 
+/**
+ * NgOsmMapDirective - Core directive for OpenStreetMap integration with Leaflet
+ * 
+ * Key Features:
+ * - Unified selection logic: All selection sources (user clicks, search, preSelectedLocations, 
+ *   external search, searchForLocation) use the same selection and pin creation logic
+ * - Robust fallback geocoding ladder with comprehensive address component combinations
+ * - Event-driven architecture with consistent visual feedback
+ * 
+ * Programmatic Selection Approaches:
+ * - preSelectedLocations: Silent selection without selectionChanged events (for initial state)
+ * - searchLocation property / searchForLocation() method: Full selection workflow with events
+ * 
+ * Events:
+ * - selectionChanged: Triggered by user interaction and programmatic selection (except preSelectedLocations)
+ * - All other events follow standard patterns
+ */
 @Directive({
   selector: '[ngOsmMap]',
   standalone: true
 })
 export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
 
+  /** Array of pins to display on the map */
   @Input() pins: PinObject[] = [];
+  
+  /** Location to center and zoom the map to */
   @Input() zoomInto?: LocationObject;
+  
+  /** Areas to highlight on the map with custom styling */
   @Input() highlightAreas: HighlightArea[] = [];
+  
+  /** Map configuration and behavior options */
   @Input() mapOptions: MapOptions = {};
-  @Input() mapId?: string; // Unique identifier for this map instance;
+  
+  /** Unique identifier for connecting external search inputs to this map instance */
+  @Input() mapId?: string;
+  
+  /** 
+   * Locations to pre-select without triggering selectionChanged events.
+   * Use this for initial map state or when you need to set selections programmatically
+   * without triggering event handlers. For programmatic selection that should trigger
+   * events, use the searchForLocation() method or searchLocation property instead.
+   */
   @Input() preSelectedLocations: LocationObject[] = [];
+  
+  /** 
+   * Location to search for and select programmatically. Setting this property will
+   * trigger the selection process including geocoding, pin creation, and selectionChanged
+   * event emission. This is the recommended approach for programmatic selection when
+   * you want to trigger the same behavior as user interaction.
+   */
+  @Input() searchLocation?: LocationObject | null;
 
+  /** Fired when the map is clicked */
   @Output() mapClick = new EventEmitter<MapClickEvent>();
+  
+  /** Fired when a location is selected via click (deprecated - use selectionChanged instead) */
   @Output() locationSelected = new EventEmitter<MapClickEvent>();
+  
+  /** Fired when a search produces results */
   @Output() searchResult = new EventEmitter<SearchResult>();
+  
+  /** Fired when a pin is dragged to a new location */
   @Output() pinDragged = new EventEmitter<PinDragEvent>();
+  
+  /** Fired when autocomplete search returns suggestions */
   @Output() autocompleteResults = new EventEmitter<AutocompleteSuggestion[]>();
+  
+  /** Fired when a pin is deleted */
   @Output() pinDeleted = new EventEmitter<PinDeleteEvent>();
+  
+  /** 
+   * Fired when locations are selected or deselected on the map.
+   * This includes selections from: map clicks, search results, external search inputs,
+   * and programmatic selection via searchForLocation() method or searchLocation property.
+   * Note: This event is NOT triggered by preSelectedLocations changes.
+   */
   @Output() selectionChanged = new EventEmitter<SelectedLocation[]>();
 
   private map?: L.Map;
@@ -132,6 +191,8 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
 
       // Always perform efficient pin updates
       this.updatePinsEfficiently(previousPins, currentPins);
+      // Reconcile selections whose pins may have been externally removed
+      this.reconcileSelectionsAfterPinsChange();
     }
 
     if (changes['highlightAreas']) {
@@ -148,6 +209,35 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
 
     if (changes['preSelectedLocations']) {
       this.handlePreSelectedLocationsChange();
+    }
+
+    if (changes['searchLocation']) {
+      this.handleSearchLocationChange();
+    }
+  }
+
+  // Reconcile selections after external pin list changes (e.g. parent cleared pins)
+  private reconcileSelectionsAfterPinsChange(): void {
+    // Build set of selectionIds still represented by pins
+    const activeSelectionIds = new Set<string>();
+    this.pins.forEach(p => {
+      if (p.data?.selectionId) activeSelectionIds.add(p.data.selectionId);
+    });
+
+    const beforeCount = this.selectedLocations.length;
+    // Filter out any selections whose pins were removed (treat as deselected)
+    this.selectedLocations = this.selectedLocations.filter(sel => activeSelectionIds.has(sel.id));
+
+    // Also clear pinIndex references that are now out of range
+    const pinsLength = this.pins.length;
+    this.selectedLocations.forEach(sel => {
+      if (sel.pinIndex !== undefined && sel.pinIndex >= pinsLength) {
+        sel.pinIndex = undefined;
+      }
+    });
+
+    if (this.selectedLocations.length !== beforeCount) {
+      this.ngZone.run(() => this.selectionChanged.emit([...this.selectedLocations]));
     }
   }
 
@@ -338,9 +428,11 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
       return;
     }
 
-    // Find pins that were removed
+    // Find pins that were removed (include any internally added markers such as selection pins)
     const removedIndices: number[] = [];
-    for (let i = previousPins.length - 1; i >= currentPins.length; i--) {
+    // Use current marker count rather than previousPins length so that internally added markers
+    // (e.g., selection pins appended directly) are also removed when the external Input pins array shrinks.
+    for (let i = this.markers.length - 1; i >= currentPins.length; i--) {
       removedIndices.push(i);
     }
 
@@ -550,7 +642,6 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
 
           this.ngZone.run(() => {
             this.pinDragged.emit(dragEvent);
-
             // Update selection data if this pin is associated with a selection
             if (pin.data?.selectionId) {
               const associatedSelection = this.selectedLocations.find(sel => sel.id === pin.data.selectionId);
@@ -559,15 +650,10 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
                   latitude: newLatLng.lat,
                   longitude: newLatLng.lng
                 };
-
                 if (dragEvent.newAddressInfo) {
                   associatedSelection.addressInfo = dragEvent.newAddressInfo;
                 }
-
-                // Update external search input if this is the primary selection
                 this.updateExternalSearchInputFromSelection();
-
-                // Emit selection change
                 this.selectionChanged.emit([...this.selectedLocations]);
               }
             }
@@ -995,7 +1081,6 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
         const searchOptions = this.mapOptions.search!;
         const selectionOptions = this.mapOptions.selection;
 
-        // Get address information for the result
         this.geocodingService.reverseGeocode(coords.lat, coords.lng).subscribe(addressInfo => {
           const searchResult: SearchResult = {
             coordinates: { latitude: coords.lat, longitude: coords.lng },
@@ -1003,7 +1088,6 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
             address: this.parseAddressFromDisplayName(addressInfo || '')
           };
 
-          // Create a map click event for selection handling
           const searchClickEvent: MapClickEvent = {
             coordinates: { latitude: coords.lat, longitude: coords.lng },
             addressInfo: addressInfo ? {
@@ -1012,45 +1096,18 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
             } : undefined
           };
 
-          // Determine if we should create a pin for this search result
-          const shouldCreatePin = searchOptions.addPinOnResult ||
-                                (selectionOptions && selectionOptions.createPinsForSelections);
+          // Determine if a pin should be created (consistent with other sources)
+            const shouldCreatePin = (selectionOptions && selectionOptions.createPinsForSelections !== false) || searchOptions.addPinOnResult;
 
-          // Store original autoZoomToSelection setting if it exists
-          const originalAutoZoom = selectionOptions?.autoZoomToSelection;
+          // Build custom pin config only if user explicitly set searchResultPin
+          const customPinConfig: Partial<PinObject> | undefined = (searchOptions.addPinOnResult && searchOptions.searchResultPin)
+            ? { ...searchOptions.searchResultPin }
+            : undefined;
 
-          // Temporarily override autoZoomToSelection based on search settings
-          // if autoZoomToSelection is not explicitly enabled
-          if (selectionOptions && originalAutoZoom !== true && searchOptions) {
-            if (searchOptions.autoZoom !== false) {
-              selectionOptions.autoZoomToSelection = true;
-              // Safe access to searchZoom with fallback
-              const searchZoomLevel = searchOptions?.searchZoom;
-              selectionOptions.selectionZoom = searchZoomLevel || selectionOptions.selectionZoom || 15;
-            }
-          }
+          // Use unified selection pathway (source = search-result)
+          this.handleLocationSelection(searchClickEvent, 'search-result', customPinConfig);
 
-          if (shouldCreatePin) {
-            // Use search pin config if available, otherwise fall back to selection pin config
-            const pinConfig = searchOptions.addPinOnResult && searchOptions.searchResultPin ? {
-              ...searchOptions.searchResultPin,
-              title: searchOptions.searchResultPin.title || 'Search Result',
-              content: searchOptions.searchResultPin.content || `<h3>📍 Search Result</h3><p>${query}</p>`,
-              color: searchOptions.searchResultPin.color || '#ff6b6b'
-            } : undefined;
-
-            // Handle through selection system for consistency
-            this.handleLocationSelection(searchClickEvent, 'search-result', pinConfig);
-          } else {
-            // No pin creation, but still handle as selection for zoom behavior
-            this.handleLocationSelection(searchClickEvent, 'search-result');
-          }
-
-          // Restore original autoZoomToSelection setting if we changed it
-          if (selectionOptions && originalAutoZoom !== undefined && originalAutoZoom !== selectionOptions.autoZoomToSelection) {
-            selectionOptions.autoZoomToSelection = originalAutoZoom;
-          }
-
+          // Emit searchResult event
           this.ngZone.run(() => {
             this.searchResult.emit(searchResult);
           });
@@ -1315,7 +1372,6 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
 
     this.geocodingService.resolveLocation(locationObj).subscribe(coords => {
       if (coords && this.map) {
-        // Get address information for the result
         this.geocodingService.reverseGeocode(coords.lat, coords.lng).subscribe(addressInfo => {
           const searchResult: SearchResult = {
             coordinates: { latitude: coords.lat, longitude: coords.lng },
@@ -1323,7 +1379,6 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
             address: this.parseAddressFromDisplayName(addressInfo || '')
           };
 
-          // Create a map click event for selection handling
           const searchClickEvent: MapClickEvent = {
             coordinates: { latitude: coords.lat, longitude: coords.lng },
             addressInfo: addressInfo ? {
@@ -1332,13 +1387,16 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
             } : undefined
           };
 
-          // Handle as search result selection (this will create pins and trigger selection)
-          this.handleLocationSelection(searchClickEvent, 'search-result');
+          const searchOptions = this.mapOptions.search!;
+          const selectionOptions = this.mapOptions.selection;
+          const customPinConfig: Partial<PinObject> | undefined = (searchOptions.addPinOnResult && searchOptions.searchResultPin)
+            ? { ...searchOptions.searchResultPin }
+            : undefined;
 
-          // Update input with result
+          this.handleLocationSelection(searchClickEvent, 'search-result', customPinConfig);
+
           inputElement.value = searchResult.displayName;
 
-          // Emit search result event
           this.ngZone.run(() => {
             this.searchResult.emit(searchResult);
           });
@@ -1704,9 +1762,28 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
    */
   private handleLocationSelection(clickEvent: MapClickEvent, source: 'map-click' | 'search-result' | 'pre-selected' = 'map-click', customPinConfig?: Partial<PinObject>): void {
     const selectionOptions = this.mapOptions.selection;
+    if (!selectionOptions || !this.map) return;
 
-    if (!selectionOptions) {
-      return; // No selection configuration
+    const multiSelect = !!selectionOptions.multiSelect;
+    const maxSelections = selectionOptions.maxSelections || 0; // 0 = unlimited
+
+    // In single-select mode, always clear existing selections and create a new one
+    if (!multiSelect) {
+      this.selectedLocations.forEach(sel => {
+        if (sel.pinIndex !== undefined) {
+          this.removeSelectionPin(sel.pinIndex);
+        }
+      });
+      this.selectedLocations = [];
+    }
+
+    // Enforce max selections in multi-select mode (remove oldest)
+    if (multiSelect && maxSelections > 0 && this.selectedLocations.length >= maxSelections) {
+      const oldest = this.selectedLocations[0];
+      if (oldest.pinIndex !== undefined) {
+        this.removeSelectionPin(oldest.pinIndex);
+      }
+      this.selectedLocations = this.selectedLocations.slice(1);
     }
 
     const selectedLocation: SelectedLocation = {
@@ -1716,314 +1793,94 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
       selectedAt: new Date()
     };
 
-    if (source === 'search-result') {
-      // Search results always replace any existing search selection
-      // Remove previous search selections
-      const existingSearchSelections = this.selectedLocations.filter(sel => sel.id.startsWith('search-result_'));
-      existingSearchSelections.forEach(sel => {
-        if (sel.pinIndex !== undefined) {
-          this.deletePinByIndex(sel.pinIndex, 'programmatic');
-        }
-      });
+    const shouldCreatePin = selectionOptions.createPinsForSelections !== false; // default true
 
-      // If multi-select is off, also remove map-click selections
-      if (!selectionOptions.multiSelect) {
-        const mapClickSelections = this.selectedLocations.filter(sel => sel.id.startsWith('map-click_'));
-        mapClickSelections.forEach(sel => {
-          if (sel.pinIndex !== undefined) {
-            this.deletePinByIndex(sel.pinIndex, 'programmatic');
-          }
-        });
-        this.selectedLocations = [];
-      } else {
-        // Multi-select is on, only remove search selections
-        this.selectedLocations = this.selectedLocations.filter(sel => !sel.id.startsWith('search-result_'));
-      }
+    if (shouldCreatePin) {
+      const basePin: PinObject = {
+        location: {
+          latitude: clickEvent.coordinates.latitude,
+          longitude: clickEvent.coordinates.longitude
+        },
+        color: '#007bff',
+        title: 'Selected Location',
+        content: clickEvent.addressInfo?.display_name ? `<h3>📍 Selected</h3><p>${clickEvent.addressInfo.display_name}</p>` : '<h3>📍 Selected Location</h3>',
+        draggable: true,
+        data: { selectionId: selectedLocation.id }
+      };
 
-      // Add the new search selection
-      this.selectedLocations.unshift(selectedLocation); // Add at beginning for priority
-    } else if (source === 'pre-selected') {
-      // Pre-selected locations - just add them without removing others
-      // In single-select mode, they should be cleared before adding new ones
-      this.selectedLocations.push(selectedLocation);
-    } else {
-      // Map-click selection
-      if (!selectionOptions.multiSelect) {
-        // Single selection mode - replace all existing selections
-        this.selectedLocations.forEach(existingSelection => {
-          if (existingSelection.pinIndex !== undefined) {
-            this.deletePinByIndex(existingSelection.pinIndex, 'programmatic');
-          }
-        });
-        this.selectedLocations = [selectedLocation];
-      } else {
-        // Multi-select mode for map clicks
-        // Check max selections limit
-        if (selectionOptions.maxSelections && selectionOptions.maxSelections > 0) {
-          // Count only map-click selections for the limit
-          const mapClickSelections = this.selectedLocations.filter(sel => sel.id.startsWith('map-click_'));
-          if (mapClickSelections.length >= selectionOptions.maxSelections) {
-            // Remove oldest map-click selection
-            const oldestMapClick = mapClickSelections[mapClickSelections.length - 1];
-            if (oldestMapClick.pinIndex !== undefined) {
-              this.deletePinByIndex(oldestMapClick.pinIndex, 'programmatic');
-            }
-            this.selectedLocations = this.selectedLocations.filter(sel => sel.id !== oldestMapClick.id);
-          }
-        }
+      // Merge selection pin defaults then any custom overrides (e.g., from search)
+      const selectionPinDefaults = selectionOptions.selectionPin || {};
+      const finalPin: PinObject = { ...basePin, ...selectionPinDefaults, ...customPinConfig } as PinObject;
+      if (!finalPin.color && basePin.color) finalPin.color = basePin.color;
+      if (!finalPin.title && basePin.title) finalPin.title = basePin.title;
 
-        // Add new map-click selection
-        // If there's a search selection, add after it, otherwise add at beginning
-        const searchSelectionIndex = this.selectedLocations.findIndex(sel => sel.id.startsWith('search-result_'));
-        if (searchSelectionIndex >= 0) {
-          this.selectedLocations.splice(searchSelectionIndex + 1, 0, selectedLocation);
-        } else {
-          this.selectedLocations.unshift(selectedLocation);
-        }
-      }
+      const previousPinsSnapshot = [...this.pins];
+      this.pins = [...this.pins, finalPin];
+      const newPinIndex = this.pins.length - 1;
+      selectedLocation.pinIndex = newPinIndex;
+      this.updatePinsEfficiently(previousPinsSnapshot, this.pins);
     }
 
-    // Create pin for selection if enabled
-    if (selectionOptions.createPinsForSelections || customPinConfig) {
-      let pinConfig: PinObject;
+    this.selectedLocations = [...this.selectedLocations, selectedLocation];
 
-      if (customPinConfig) {
-        // Use custom pin configuration (typically from search results)
-        // Merge with selection pin defaults for consistency
-        const baseConfig = selectionOptions.selectionPin || {};
-        pinConfig = {
-          location: clickEvent.coordinates,
-          title: customPinConfig.title || baseConfig.title || (source === 'search-result' ? 'Search Result' : 'Selected Location'),
-          content: customPinConfig.content || baseConfig.content || this.generateSelectionPinContent(selectedLocation),
-          color: customPinConfig.color || baseConfig.color || (source === 'search-result' ? '#ff6b6b' : '#9c27b0'),
-          draggable: customPinConfig.draggable !== undefined ? customPinConfig.draggable : (baseConfig.draggable !== false),
-          data: { selectionId: selectedLocation.id, isSearchSelection: source === 'search-result' },
-          ...customPinConfig
-        };
-      } else {
-        // Use regular selection pin configuration
-        pinConfig = {
-          location: clickEvent.coordinates,
-          color: selectionOptions.selectionPin?.color || '#9c27b0',
-          title: selectionOptions.selectionPin?.title || 'Selected Location',
-          content: selectionOptions.selectionPin?.content || this.generateSelectionPinContent(selectedLocation),
-          draggable: selectionOptions.selectionPin?.draggable !== false,
-          data: { selectionId: selectedLocation.id, isSearchSelection: source === 'search-result' }
-        };
-      }
-
-      // Add pin to the pins array
-      this.pins.push(pinConfig);
-      selectedLocation.pinIndex = this.pins.length - 1;
-
-      // Update markers
-      this.updatePins();
-    }
-
-    // Emit selection change only if NOT pre-selected
+    // Only emit selectionChanged event for sources that should trigger it
+    // Exclude 'pre-selected' to maintain the original behavior where preSelectedLocations don't trigger events
     if (source !== 'pre-selected') {
       this.ngZone.run(() => {
         this.selectionChanged.emit([...this.selectedLocations]);
       });
     }
 
-    // Update external search input if enabled
     this.updateExternalSearchInputFromSelection();
-
-    // Auto-zoom to selection if enabled (works even in readonly mode)
-    if (selectionOptions.autoZoomToSelection && this.selectedLocations.length > 0) {
-      this.zoomToSelection();
-    }
+    this.zoomToLocation(selectedLocation.coordinates, 'selection');
   }
 
-  /**
-   * Get the primary selection (search selection has priority, otherwise first selection)
-   */
-  private getPrimarySelection(): SelectedLocation | undefined {
-    // Search selection has priority
-    const searchSelection = this.selectedLocations.find(sel => sel.id.startsWith('search-result_'));
-    if (searchSelection) {
-      return searchSelection;
-    }
-
-    // Return first selection if no search selection
-    return this.selectedLocations.length > 0 ? this.selectedLocations[0] : undefined;
-  }
-
-  /**
-   * Update external search input with primary selection
-   */
-  private updateExternalSearchInputFromSelection(): void {
-    const primarySelection = this.getPrimarySelection();
-    if (primarySelection) {
-      const displayValue = primarySelection.addressInfo?.display_name ||
-        `${primarySelection.coordinates.latitude.toFixed(6)}, ${primarySelection.coordinates.longitude.toFixed(6)}`;
-
-      // Find external search input and update it
-      const externalInput = document.querySelector('#external-search-input') as HTMLInputElement;
-      if (externalInput) {
-        externalInput.value = displayValue;
-        const inputEvent = new Event('input', { bubbles: true, cancelable: true });
-        externalInput.dispatchEvent(inputEvent);
-      }
-    }
-  }
-
-  /**
-   * Generate content for selection pin popup
-   */
-  private generateSelectionPinContent(selection: SelectedLocation): string {
-    const coords = selection.coordinates;
-    const address = selection.addressInfo?.display_name;
-
-    return `
-      <h3>📍 Selected Location</h3>
-      <p><strong>Coordinates:</strong><br>
-         Lat: ${coords.latitude.toFixed(6)}<br>
-         Lng: ${coords.longitude.toFixed(6)}</p>
-      ${address ? `<p><strong>Address:</strong><br>${address}</p>` : ''}
-      <p><small>Selected: ${selection.selectedAt.toLocaleString()}</small></p>
-    `;
-  }
-
-  /**
-   * Delete a pin by index
-   */
-  private deletePinByIndex(pinIndex: number, reason: 'user-action' | 'programmatic'): void {
+  // Remove a selection pin (internal)
+  private removeSelectionPin(pinIndex: number): void {
     if (pinIndex >= 0 && pinIndex < this.pins.length) {
-      const deletedPin = this.pins[pinIndex];
-
-      // Remove pin from array
-      this.pins.splice(pinIndex, 1);
-
-      // Update selections that reference pins after this index
-      this.selectedLocations.forEach(selection => {
-        if (selection.pinIndex !== undefined) {
-          if (selection.pinIndex === pinIndex) {
-            // This selection's pin was deleted
-            selection.pinIndex = undefined;
-          } else if (selection.pinIndex > pinIndex) {
-            // Adjust index for pins that shifted down
-            selection.pinIndex--;
-          }
+      this.pins = this.pins.filter((_, i) => i !== pinIndex);
+      this.updatePins();
+      // Adjust stored pinIndex references in remaining selections
+      this.selectedLocations.forEach(sel => {
+        if (sel.pinIndex !== undefined && sel.pinIndex > pinIndex) {
+          sel.pinIndex = sel.pinIndex - 1;
+        } else if (sel.pinIndex === pinIndex) {
+          sel.pinIndex = undefined; // removed
         }
       });
-
-      // Remove associated selection if it exists
-      if (deletedPin.data?.selectionId) {
-        this.selectedLocations = this.selectedLocations.filter(
-          selection => selection.id !== deletedPin.data.selectionId
-        );
-      }
-
-      // Emit pin deleted event
-      this.ngZone.run(() => {
-        this.pinDeleted.emit({
-          pinIndex,
-          deletedPin,
-          reason
-        });
-
-        this.selectionChanged.emit([...this.selectedLocations]);
-      });
-
-      // Update markers
-      this.updatePins();
     }
   }
 
-  /**
-   * Setup global pin deletion handler
-   */
-  private setupPinDeletionHandler(): void {
-    // Create global handler for pin deletion from popups
-    (window as any).deletePinHandler = (pinIndex: number) => {
-      this.deletePinByIndex(pinIndex, 'user-action');
-    };
-  }
-
-  /**
-   * Get current selections
-   */
-  getSelectedLocations(): SelectedLocation[] {
-    return [...this.selectedLocations];
-  }
-
-  /**
-   * Clear all selections
-   */
-  clearSelections(): void {
-    // Remove pins associated with selections
-    this.selectedLocations.forEach(selection => {
-      if (selection.pinIndex !== undefined) {
-        this.deletePinByIndex(selection.pinIndex, 'programmatic');
-      }
-    });
-
-    this.selectedLocations = [];
-
-    this.ngZone.run(() => {
-      this.selectionChanged.emit([]);
-    });
-  }
-
-  /**
-   * Add a selection programmatically
-   */
-  addSelection(coordinates: { latitude: number; longitude: number }, addressInfo?: any): void {
-    const clickEvent: MapClickEvent = {
-      coordinates,
-      addressInfo
-    };
-
-    this.handleLocationSelection(clickEvent);
-  }
-
-  /**
-   * Handle changes to pre-selected locations input
-   */
+  // Process preSelectedLocations via unified selection pathway
   private handlePreSelectedLocationsChange(): void {
-    // Clear existing pre-selected locations
-    this.clearPreSelectedLocations();
-
-    if (!this.preSelectedLocations || this.preSelectedLocations.length === 0) {
-      return;
-    }
+    if (!this.preSelectedLocations || this.preSelectedLocations.length === 0 || !this.map) return;
 
     const selectionOptions = this.mapOptions.selection;
-    if (!selectionOptions) {
-      return; // No selection configuration
+    const multiSelect = !!selectionOptions?.multiSelect;
+
+    // In single-select mode, clear ALL existing selections (any source) to ensure true precedence
+    if (!multiSelect) {
+      this.clearSelections();
+    } else {
+      // In multi-select just remove prior pre-selected entries to refresh them
+      const existingPre = this.selectedLocations.filter(sel => sel.id.startsWith('pre-selected_'));
+      existingPre.forEach(sel => { if (sel.pinIndex !== undefined) this.removeSelectionPin(sel.pinIndex); });
+      this.selectedLocations = this.selectedLocations.filter(sel => !sel.id.startsWith('pre-selected_'));
     }
 
-    // In single-select mode, only process the first location
-    const locationsToProcess = selectionOptions.multiSelect
-      ? this.preSelectedLocations
-      : this.preSelectedLocations.slice(0, 1);
+    const targets = multiSelect ? this.preSelectedLocations : [this.preSelectedLocations[0]];
 
-    // Zoom to the first pre-selected location
-    if (locationsToProcess.length > 0) {
-      this.zoomToPreSelectedLocation(locationsToProcess[0]);
-    }
-
-    // Process each location
-    locationsToProcess.forEach(location => {
-      this.geocodingService.resolveLocation(location).subscribe(coords => {
+    targets.forEach(locationObj => {
+      this.geocodingService.resolveLocation(locationObj).subscribe(coords => {
         if (coords) {
-          // Get address info via reverse geocoding
           this.geocodingService.reverseGeocode(coords.lat, coords.lng).subscribe(displayName => {
-            // Create a MapClickEvent-like object to reuse existing selection logic
             const clickEvent: MapClickEvent = {
-              coordinates: {
-                latitude: coords.lat,
-                longitude: coords.lng
-              },
+              coordinates: { latitude: coords.lat, longitude: coords.lng },
               addressInfo: displayName ? {
                 display_name: displayName,
-                address: {} // Basic address info
+                address: this.parseAddressFromDisplayName(displayName)
               } : undefined
             };
-
-            // Use existing selection logic with pre-selected source
             this.handleLocationSelection(clickEvent, 'pre-selected');
           });
         }
@@ -2031,282 +1888,133 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
     });
   }
 
-  /**
-   * Zoom to the first pre-selected location
-   */
-  private zoomToPreSelectedLocation(location: LocationObject): void {
-    if (!this.map) return;
+  // Process searchLocation via unified selection pathway
+  private handleSearchLocationChange(): void {
+    if (!this.searchLocation || !this.map) return;
 
+    this.searchForLocation(this.searchLocation);
+  }
+
+  /**
+   * Public method to programmatically search for and select a location.
+   * This method provides the same behavior as user interaction - it will:
+   * - Perform geocoding if needed to resolve the location
+   * - Create pins for the selection (if configured)
+   * - Emit selectionChanged events
+   * - Handle single/multi-select logic based on map options
+   * - Provide visual feedback
+   * 
+   * Use this method instead of preSelectedLocations when you want to trigger
+   * the full selection workflow programmatically.
+   * 
+   * @param locationObject The location to search for and select
+   */
+  searchForLocation(locationObject: LocationObject): void {
+    if (!this.map) return;
+    if(!locationObject) return;
     const selectionOptions = this.mapOptions.selection;
-    if (!selectionOptions?.autoZoomToSelection) return;
+    const multiSelect = !!selectionOptions?.multiSelect;
 
-    this.geocodingService.resolveLocation(location).subscribe(coords => {
-      if (coords && this.map) {
-        const zoomLevel = selectionOptions.selectionZoom || 15;
-        const animated = selectionOptions.animatedZoom !== false; // Default to true
-
-        if (animated) {
-          // Use animated pan and zoom
-          this.map.setView([coords.lat, coords.lng], zoomLevel, {
-            animate: true,
-            duration: 1
-          });
-        } else {
-          // Use instant zoom without animation
-          this.map.setView([coords.lat, coords.lng], zoomLevel, {
-            animate: false
-          });
-        }
-      }
-    });
-  }
-
-  /**
-   * Handle changes to map options
-   */
-  private handleMapOptionsChange(change: any): void {
-    if (!this.map) return;
-
-    const currentOptions = change.currentValue || {};
-    const previousOptions = change.previousValue || {};
-
-    // Check if readonly mode changed
-    if (currentOptions.readonly !== previousOptions.readonly) {
-      this.updateReadonlyMode(currentOptions.readonly || false);
+    // In single-select mode, clear ALL existing selections first
+    if (!multiSelect) {
+      this.clearSelections();
     }
 
-    // Check if boundary options changed
-    if (currentOptions.enableWorldBounds !== previousOptions.enableWorldBounds ||
-        currentOptions.noWrap !== previousOptions.noWrap ||
-        JSON.stringify(currentOptions.mapBounds) !== JSON.stringify(previousOptions.mapBounds)) {
-      this.setupMapBoundaries(currentOptions);
+    // Use geocoding service to resolve the location
+    this.geocodingService.resolveLocation(locationObject).subscribe(coords => {
+      if (coords) {
+        // Get address info via reverse geocoding
+        this.geocodingService.reverseGeocode(coords.lat, coords.lng).subscribe(displayName => {
+          const clickEvent: MapClickEvent = {
+            coordinates: { latitude: coords.lat, longitude: coords.lng },
+            addressInfo: displayName ? {
+              display_name: displayName,
+              address: this.parseAddressFromDisplayName(displayName)
+            } : undefined
+          };
 
-      // Update tile layers if noWrap changed
-      if (currentOptions.noWrap !== previousOptions.noWrap) {
-        this.setupTileLayers(currentOptions);
-      }
-    }
-
-    // Check if other options that affect map behavior changed
-    if (currentOptions.enableClickSelect !== previousOptions.enableClickSelect) {
-      if (currentOptions.enableClickSelect && !currentOptions.readonly) {
-        this.enableClickSelect();
+          // Use the unified selection logic with 'search-result' source to trigger all the same events
+          this.handleLocationSelection(clickEvent, 'search-result');
+        });
       } else {
-        this.toggleClickSelect(false);
-      }
-    }
-  }
-
-  /**
-   * Update readonly mode for the map
-   */
-  private updateReadonlyMode(readonly: boolean): void {
-    if (!this.map) return;
-
-    if (readonly) {
-      // Disable all interactions
-      this.map.dragging.disable();
-      this.map.touchZoom.disable();
-      this.map.doubleClickZoom.disable();
-
-      // Disable scroll wheel zoom unless specifically enabled in readonly mode
-      if (this.mapOptions.scrollWheelZoomInReadonly !== true) {
-        this.map.scrollWheelZoom.disable();
-      } else {
-        this.map.scrollWheelZoom.enable();
-      }
-
-      this.map.boxZoom.disable();
-      this.map.keyboard.disable();
-
-      // Disable click-to-select
-      this.toggleClickSelect(false);
-
-      // Remove zoom control
-      if (this.map.zoomControl) {
-        this.map.zoomControl.remove();
-      }
-    } else {
-      // Enable interactions based on current options
-      const options = { ...this.defaultOptions, ...this.mapOptions };
-
-      this.map.dragging.enable();
-      this.map.touchZoom.enable();
-
-      if (options.doubleClickZoom !== false) {
-        this.map.doubleClickZoom.enable();
-      }
-
-      if (options.scrollWheelZoom !== false) {
-        this.map.scrollWheelZoom.enable();
-      }
-
-      this.map.boxZoom.enable();
-      this.map.keyboard.enable();
-
-      // Re-enable click-to-select if configured
-      if (options.enableClickSelect) {
-        this.enableClickSelect();
-      }
-
-      // Re-add zoom control if configured
-      if (options.zoomControl !== false) {
-        this.map.zoomControl.addTo(this.map);
-      }
-    }
-
-    // Update all existing markers to respect readonly mode
-    this.updateMarkersReadonlyMode(readonly);
-
-    // Update external search input readonly state
-    this.updateExternalSearchInputReadonlyState(readonly);
-  }
-
-  /**
-   * Update all markers to respect readonly mode
-   */
-  private updateMarkersReadonlyMode(readonly: boolean): void {
-    this.markers.forEach((marker, index) => {
-      if (index < this.pins.length) {
-        const pin = this.pins[index];
-        const originallyDraggable = pin.draggable !== undefined ? pin.draggable : this.mapOptions.defaultPinsDraggable || false;
-        const shouldBeDraggable = readonly ? false : originallyDraggable;
-
-        if (shouldBeDraggable) {
-          marker.dragging?.enable();
-        } else {
-          marker.dragging?.disable();
-        }
+        console.warn('Failed to geocode search location:', locationObject);
       }
     });
   }
 
-  /**
-   * Update external search input readonly state when map readonly mode changes
-   */
-  private updateExternalSearchInputReadonlyState(readonly: boolean): void {
-    if (!this.externalSearchInput || !this.mapOptions.searchInput?.enableExternalBinding) return;
-
-    const inputConfig = this.mapOptions.searchInput;
-    const isReadonlyInput = readonly && !inputConfig.overrideReadonlyMode;
-
-    if (isReadonlyInput) {
-      this.externalSearchInput.disabled = true;
-      this.externalSearchInput.style.opacity = '0.6';
-      this.externalSearchInput.title = 'Search is disabled in readonly mode';
-    } else {
-      this.externalSearchInput.disabled = false;
-      this.externalSearchInput.style.opacity = '';
-      this.externalSearchInput.title = inputConfig.overrideReadonlyMode && readonly
-        ? 'Search enabled (overriding readonly mode)'
-        : '';
+  // React to mapOptions changes (currently only re-enables click select if needed)
+  private handleMapOptionsChange(change: SimpleChanges['mapOptions']): void {
+    if (this.mapOptions.enableClickSelect && !this.clickSelectEnabled && !this.mapOptions.readonly) {
+      this.enableClickSelect();
     }
   }
 
-  /**
-   * Clear only pre-selected locations
-   */
-  private clearPreSelectedLocations(): void {
-    // Remove only pre-selected locations, keep user selections
-    const preSelectedSelections = this.selectedLocations.filter(sel => sel.id.startsWith('pre-selected_'));
+  // Placeholder: connect external search input service (if any)
+  private setupSearchInputConnections(): void { /* no-op or integrate shared search bus */ }
 
-    preSelectedSelections.forEach(selection => {
-      if (selection.pinIndex !== undefined) {
-        this.deletePinByIndex(selection.pinIndex, 'programmatic');
-      }
-    });
-
-    // Remove pre-selected selections from the array
-    this.selectedLocations = this.selectedLocations.filter(sel => !sel.id.startsWith('pre-selected_'));
+  // Setup deletion handler for popup buttons
+  private setupPinDeletionHandler(): void {
+    (window as any).deletePinHandler = (index: number) => {
+      this.deletePinByIndex(index, 'user-action');
+    };
   }
 
-  /**
-   * Clear the coordinates cache (useful for testing or if locations have changed)
-   */
+  private deletePinByIndex(index: number, reason: 'user-action' | 'programmatic'): void {
+    if (index < 0 || index >= this.pins.length) return;
+    const deletedPin = this.pins[index];
+    this.pins = this.pins.filter((_, i) => i !== index);
+    this.updatePins();
+
+    // Remove selection referencing this pin (remove selection entirely)
+    const selectionId = deletedPin.data?.selectionId;
+    if (selectionId) {
+      this.selectedLocations = this.selectedLocations.filter(sel => sel.id !== selectionId);
+    }
+
+    // Adjust pinIndex references for remaining selections
+    this.selectedLocations.forEach(sel => {
+      if (sel.pinIndex === index) sel.pinIndex = undefined; // should already be filtered if selectionId matched
+      else if (sel.pinIndex !== undefined && sel.pinIndex > index) sel.pinIndex = sel.pinIndex - 1;
+    });
+
+    this.ngZone.run(() => {
+      const evt: PinDeleteEvent = { pinIndex: index, deletedPin, reason };
+      this.pinDeleted.emit(evt);
+      this.selectionChanged.emit([...this.selectedLocations]);
+    });
+  }
+
+  private updateExternalSearchInputFromSelection(): void { /* no-op for now */ }
+
+  // --- Public selection API (used by component wrapper) ---
+  public getSelectedLocations(): SelectedLocation[] {
+    return [...this.selectedLocations];
+  }
+
+  public clearSelections(): void {
+    // Remove any selection pins first
+    this.selectedLocations.forEach(sel => {
+      if (sel.pinIndex !== undefined) {
+        this.removeSelectionPin(sel.pinIndex);
+      }
+    });
+    this.selectedLocations = [];
+    this.ngZone.run(() => this.selectionChanged.emit([]));
+  }
+
+  public addSelection(coordinates: { latitude: number; longitude: number }, addressInfo?: any): void {
+    const clickEvent: MapClickEvent = { coordinates, addressInfo };
+    // Reuse unified selection logic (treat as map-click)
+    this.handleLocationSelection(clickEvent, 'map-click');
+  }
+
+  public zoomToSelection(): void {
+    if (this.selectedLocations.length === 0) return;
+    this.zoomToLocation(this.selectedLocations[0].coordinates, 'selection');
+  }
+
   public clearLocationCache(): void {
     this.coordinatesCache.clear();
   }
 
-  /**
-   * Zoom to the primary selected location
-   * This works even in readonly mode since it's just view navigation
-   *
-   * Zooms to the first selected location with zoom level and animation settings
-   * from SelectionOptions (selectionZoom and animatedZoom).
-   *
-   * - Used by auto-zoom when selection changes
-   * - Can be called manually via NgOsmMapComponent.zoomToSelection()
-   */
-  public zoomToSelection(): void {
-    if (!this.map || this.selectedLocations.length === 0) return;
-
-    const selectionOptions = this.mapOptions.selection;
-    if (!selectionOptions) return;
-
-    // Get the first selected location (priority order: search, then first in array)
-    const primarySelection = this.getPrimarySelection();
-    if (!primarySelection) return;
-
-    const coords = primarySelection.coordinates;
-    const zoomLevel = selectionOptions.selectionZoom || 15;
-    const animated = selectionOptions.animatedZoom !== false; // Default to true
-
-    if (animated) {
-      // Use animated pan and zoom
-      this.map.setView([coords.latitude, coords.longitude], zoomLevel, {
-        animate: true,
-        duration: 1
-      });
-    } else {
-      // Use instant zoom without animation
-
-      this.map.setView([coords.latitude, coords.longitude], zoomLevel, {
-        animate: false
-      });
-    }
-  }
-
-  /**
-   * Setup connections to search input directives
-   */
-  private setupSearchInputConnections(): void {
-    if (!this.mapId) return; // Can't connect without a map ID
-
-    // Listen for search events from connected search inputs
-    this.searchConnectionSubscription = this.searchConnectionService.searchEvents$.subscribe(event => {
-      // Check if this search input is connected to this map
-      const isConnectedToThisMap = this.searchConnectionService.isConnected(event.searchInputId, this.mapId!);
-
-      if (isConnectedToThisMap) {
-        this.handleSearchInputSearch(event.query);
-      }
-    });
-
-    // Listen for suggestion selection events from connected search inputs
-    this.suggestionConnectionSubscription = this.searchConnectionService.suggestionSelectedEvents$.subscribe(event => {
-      // Check if this search input is connected to this map
-      const isConnectedToThisMap = this.searchConnectionService.isConnected(event.searchInputId, this.mapId!);
-
-      if (isConnectedToThisMap) {
-        this.handleSearchInputSuggestionSelected(event.suggestion);
-      }
-    });
-  }
-
-  /**
-   * Handle search from connected search input
-   */
-  private handleSearchInputSearch(query: string): void {
-    // Use the same search logic as the built-in search control
-    this.handleSearch(query);
-  }
-
-  /**
-   * Handle suggestion selection from connected search input
-   */
-  private handleSearchInputSuggestionSelected(suggestion: any): void {
-    // Use the same search logic as the built-in search control
-    // When a suggestion is selected, treat it as a search query
-    this.handleSearch(suggestion.displayText);
-  }
 }

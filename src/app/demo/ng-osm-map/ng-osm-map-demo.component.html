@@ -41,7 +41,7 @@
     <section class="search-input-demo">
       <h2>🔍 Search Input Directive Demo</h2>
       <p>Using the <code>ngOsmSearchInput</code> directive to connect external search inputs to maps:</p>
-      
+
       <!-- Documentation Link -->
       <div class="docs-link-section">
         <div class="docs-link-card">
@@ -262,8 +262,8 @@
             </button>
           </div>
           <p class="pre-selection-info">
-            Pre-selections: {{ preSelectedLocations.length }}
-            <span *ngIf="preSelectedLocations.length > 0">
+            Pre-selections: {{ selectedLocations.length }}
+            <span *ngIf="selectedLocations.length > 0">
               ({{ getPreSelectedLocationNames() }})
             </span>
           </p>
@@ -425,7 +425,6 @@
         [zoomInto]="centerLocation"
         [highlightAreas]="highlightAreas"
         [mapOptions]="mapOptions"
-        [preSelectedLocations]="preSelectedLocations"
         [height]="400"
         [width]="'100%'"
         (mapClick)="onMapClick($event)"
@@ -569,6 +568,294 @@
   </div>
 </main>
 
+<!-- Address Building Section -->
+<section class="address-building-section">
+  <div class="container">
+    <h2>🏠 Address Building Demo</h2>
+    <p>Build structured addresses using individual input fields, geocode them, and automatically display the results on a dedicated map with pins:</p>
+
+    <div class="address-form">
+      <h3>📝 Address Form</h3>
+      <div class="address-inputs-grid">
+
+        <!-- Address Line 1 -->
+        <div class="input-group">
+          <label for="addressLine1">Address Line 1:</label>
+          <input
+            type="text"
+            id="addressLine1"
+            [(ngModel)]="addressComponents.addressLine1"
+            placeholder="Street number and name"
+            class="address-input"
+            (input)="onAddressComponentChange()">
+        </div>
+
+        <!-- Address Line 2 -->
+        <div class="input-group">
+          <label for="addressLine2">Address Line 2:</label>
+          <input
+            type="text"
+            id="addressLine2"
+            [(ngModel)]="addressComponents.addressLine2"
+            placeholder="Apartment, suite, etc. (optional)"
+            class="address-input"
+            (input)="onAddressComponentChange()">
+        </div>
+
+        <!-- City -->
+        <div class="input-group">
+          <label for="city">City:</label>
+          <input
+            type="text"
+            id="city"
+            [(ngModel)]="addressComponents.city"
+            placeholder="City name"
+            class="address-input"
+            (input)="onAddressComponentChange()">
+        </div>
+
+        <!-- State/Province -->
+        <div class="input-group">
+          <label for="state">State/Province:</label>
+          <input
+            type="text"
+            id="state"
+            [(ngModel)]="addressComponents.state"
+            placeholder="State or province"
+            class="address-input"
+            (input)="onAddressComponentChange()">
+        </div>
+
+        <!-- Postal Code -->
+        <div class="input-group">
+          <label for="postalCode">ZIP/Postal Code:</label>
+          <input
+            type="text"
+            id="postalCode"
+            [(ngModel)]="addressComponents.postalCode"
+            placeholder="ZIP or postal code"
+            class="address-input"
+            (input)="onAddressComponentChange()">
+        </div>
+
+        <!-- Country -->
+        <div class="input-group">
+          <label for="country">Country:</label>
+          <select
+            id="country"
+            [(ngModel)]="addressComponents.country"
+            class="address-input country-select"
+            (change)="onAddressComponentChange()">
+            <option value="">Select Country</option>
+            <option value="United States">United States</option>
+            <option value="Canada">Canada</option>
+            <option value="United Kingdom">United Kingdom</option>
+            <option value="Germany">Germany</option>
+            <option value="France">France</option>
+            <option value="Spain">Spain</option>
+            <option value="Italy">Italy</option>
+            <option value="Netherlands">Netherlands</option>
+            <option value="Australia">Australia</option>
+            <option value="Japan">Japan</option>
+            <option value="South Korea">South Korea</option>
+            <option value="India">India</option>
+            <option value="China">China</option>
+            <option value="Brazil">Brazil</option>
+            <option value="Mexico">Mexico</option>
+            <option value="Argentina">Argentina</option>
+            <option value="South Africa">South Africa</option>
+            <option value="Russia">Russia</option>
+            <option value="Sweden">Sweden</option>
+            <option value="Norway">Norway</option>
+            <option value="Denmark">Denmark</option>
+            <option value="Finland">Finland</option>
+            <option value="Poland">Poland</option>
+            <option value="Czech Republic">Czech Republic</option>
+            <option value="Austria">Austria</option>
+            <option value="Switzerland">Switzerland</option>
+            <option value="Belgium">Belgium</option>
+            <option value="Portugal">Portugal</option>
+            <option value="Ireland">Ireland</option>
+            <option value="New Zealand">New Zealand</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Built Address Display -->
+      <div class="built-address-display">
+        <h4>📍 Built Address:</h4>
+        <div class="address-preview" [class.empty]="!getBuiltAddress()">
+          {{ getBuiltAddress() || 'Fill in address fields to see the built address...' }}
+        </div>
+      </div>
+
+      <!-- Address Actions -->
+      <div class="address-actions">
+        <button
+          class="btn btn-primary"
+          (click)="geocodeBuiltAddress()"
+          [disabled]="!getBuiltAddress() || isGeocodingAddress">
+          <span *ngIf="isGeocodingAddress">🔄 Geocoding...</span>
+          <span *ngIf="!isGeocodingAddress">🗺️ Geocode & Show on Map</span>
+        </button>
+
+        <button
+          class="btn btn-success"
+          (click)="addBuiltAddressPin()"
+          [disabled]="!builtAddressLocation">
+          📍 Add Extra Pin
+        </button>
+
+        <button
+          class="btn btn-secondary"
+          (click)="clearAddressForm()">
+          🧹 Clear Form
+        </button>
+
+        <button
+          class="btn btn-info"
+          (click)="fillSampleAddress()">
+          📋 Sample Address
+        </button>
+
+        <button
+          class="btn btn-warning"
+          (click)="clearAddressPins()">
+          🗑️ Clear All Pins
+        </button>
+      </div>
+
+      <!-- Geocoding Status -->
+      <div class="geocoding-status" *ngIf="addressGeocodingStatus">
+        <div class="status-message" [ngClass]="addressGeocodingStatus.type">
+          <strong>{{ addressGeocodingStatus.type === 'success' ? '✅' : '❌' }}</strong>
+          {{ addressGeocodingStatus.message }}
+        </div>
+        <div class="geocoded-info" *ngIf="builtAddressLocation">
+          <p><strong>📍 Coordinates:</strong> {{ builtAddressLocation.latitude?.toFixed(6) }}, {{ builtAddressLocation.longitude?.toFixed(6) }}</p>
+          <p><strong>📋 Built Address:</strong> {{ getBuiltAddress() }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Address Map -->
+    <div class="address-map-section">
+      <h3>🗺️ Address Map</h3>
+      <p>This dedicated map shows the geocoded addresses from the address building form:</p>
+
+      <ng-osm-map
+        #addressMapComponent
+        [mapId]="addressMapId"
+        [zoomInto]="addressMapCenter"
+        [mapOptions]="addressMapOptions"
+        [height]="350"
+        [width]="'100%'"
+        (mapClick)="onAddressMapClick($event)"
+        (locationSelected)="onAddressMapLocationSelected($event)"
+        (pinDeleted)="onAddressMapPinDeleted($event)"
+        [searchLocation]="searchLocation"
+        class="address-map-container">
+      </ng-osm-map>
+
+      <div class="address-map-info">
+        <p><strong>Address Pins:</strong> {{ addressPins.length }}</p>
+        <p *ngIf="addressPins.length > 0"><strong>Latest Address:</strong> {{ getLatestAddressPin()?.title || 'N/A' }}</p>
+      </div>
+    </div>
+
+    <!-- Sample Address Patterns -->
+    <div class="sample-addresses">
+      <h3>📋 Sample Address Patterns</h3>
+      <p>Click on any sample to automatically fill the address form:</p>
+      <div class="sample-grid">
+
+        <div class="sample-card" (click)="fillSampleAddress('us')">
+          <h4>🇺🇸 United States</h4>
+          <div class="sample-address">
+            <div>123 Main Street</div>
+            <div>Apt 4B</div>
+            <div>New York, NY 10001</div>
+            <div>United States</div>
+          </div>
+        </div>
+
+        <div class="sample-card" (click)="fillSampleAddress('uk')">
+          <h4>🇬🇧 United Kingdom</h4>
+          <div class="sample-address">
+            <div>10 Downing Street</div>
+            <div>Westminster</div>
+            <div>London SW1A 2AA</div>
+            <div>United Kingdom</div>
+          </div>
+        </div>
+
+        <div class="sample-card" (click)="fillSampleAddress('ca')">
+          <h4>🇨🇦 Canada</h4>
+          <div class="sample-address">
+            <div>24 Sussex Drive</div>
+            <div></div>
+            <div>Ottawa, ON K1M 1M4</div>
+            <div>Canada</div>
+          </div>
+        </div>
+
+        <div class="sample-card" (click)="fillSampleAddress('de')">
+          <h4>🇩🇪 Germany</h4>
+          <div class="sample-address">
+            <div>Unter den Linden 77</div>
+            <div></div>
+            <div>Berlin 10117</div>
+            <div>Germany</div>
+          </div>
+        </div>
+
+        <div class="sample-card" (click)="fillSampleAddress('jp')">
+          <h4>🇯🇵 Japan</h4>
+          <div class="sample-address">
+            <div>1-1 Chiyoda</div>
+            <div></div>
+            <div>Tokyo 100-8111</div>
+            <div>Japan</div>
+          </div>
+        </div>
+
+        <div class="sample-card" (click)="fillSampleAddress('au')">
+          <h4>🇦🇺 Australia</h4>
+          <div class="sample-address">
+            <div>1 Macquarie Street</div>
+            <div></div>
+            <div>Sydney NSW 2000</div>
+            <div>Australia</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Address Building Tips -->
+    <div class="address-examples">
+      <h3>💡 Address Building Tips</h3>
+      <div class="tips-grid">
+        <div class="tip-card">
+          <h4>🎯 Complete Addresses</h4>
+          <p>Include as many address components as possible for better geocoding accuracy. Street number, street name, city, and country are most important for precise location mapping.</p>
+        </div>
+        <div class="tip-card">
+          <h4>🌍 International Support</h4>
+          <p>The geocoding service supports international addresses. When you click "Geocode & Show on Map", the location is automatically pinned and selected on the map.</p>
+        </div>
+        <div class="tip-card">
+          <h4>🔍 Fallback Options</h4>
+          <p>If a full address doesn't geocode, try with just "City, Country" or "State, Country" for broader location results. The system will show helpful error messages.</p>
+        </div>
+        <div class="tip-card">
+          <h4>📱 Automatic Mapping</h4>
+          <p>The geocoding process automatically creates pins and centers the map on found locations. Use "Add Extra Pin" for additional markers at the same location.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Template-based Popup Features -->
 <section class="template-features">
   <div class="container">
@@ -700,3 +987,4 @@
     </p>
   </div>
 </footer>
+

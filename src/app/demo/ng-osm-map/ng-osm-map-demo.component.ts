@@ -1,5 +1,6 @@
 import { Component, ViewChild, TemplateRef, ViewContainerRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { NgOsmMapComponent, PinObject, LocationObject, HighlightArea, MapClickEvent, SearchResult, PinDragEvent, AutocompleteSuggestion,
    AutocompleteSearchContext, TileLayerType, SelectedLocation, PinDeleteEvent, PinPopupContext } from '../../../../projects/ng-osm-map/src/public-api';
@@ -8,7 +9,7 @@ import { NgOsmSearchInputDirective } from '../../../../projects/ng-osm-map/src/p
 @Component({
   selector: 'app-ng-osm-map-demo',
   standalone: true,
-  imports: [NgOsmMapComponent, NgOsmSearchInputDirective, CommonModule, RouterModule],
+  imports: [NgOsmMapComponent, NgOsmSearchInputDirective, CommonModule, FormsModule, RouterModule],
   templateUrl: './ng-osm-map-demo.component.html',
   styleUrl: './ng-osm-map-demo.component.scss'
 })
@@ -154,9 +155,6 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
   selectedLocations: SelectedLocation[] = [];
   deleteHistory: PinDeleteEvent[] = [];
 
-  // Pre-selected locations for demonstrating pre-selection functionality
-  preSelectedLocations: LocationObject[] = [];
-
   // Available demo locations for pre-selection
   demoLocations: { name: string; location: LocationObject }[] = [
     { name: 'New York City', location: { latitude: 40.7128, longitude: -74.0060 } },
@@ -184,6 +182,110 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
   // Track special pins
   searchResultPinIndex: number = -1; // Index of the current search result pin
   selectedLocationPinIndex: number = -1; // Index of pin created from location selection
+
+  // Address Building Properties
+  addressMapId = 'address-demo-map'; // Unique ID for the address map
+  addressPins: PinObject[] = []; // Pins specifically for the address map
+  addressMapCenter: LocationObject = { latitude: 40.7128, longitude: -74.0060 }; // Default center for address map
+
+  addressMapOptions = {
+    zoom: 2,
+    height: 350,
+    zoomControl: true,
+    scrollWheelZoom: true,
+    defaultPinsDraggable: true,
+    tileLayerType: 'openstreetmap' as TileLayerType,
+    enableLayerControl: false, // Disable layer switching for address map
+    search: {
+      enabled: false, // Disable built-in search for address map
+      placeholder: '',
+      autoZoom: false,
+      searchZoom: 15,
+      addPinOnResult: false
+    },
+    enableClickSelect: true,
+    selection: {
+      multiSelect: false,
+      maxSelections: 1,
+      createPinsForSelections: true,
+      selectionPin: {
+        color: '#28a745',
+        title: 'Address Location',
+        draggable: true
+      },
+      showDeleteButton: true,
+      allowPinDeletion: true,
+      autoZoomToSelection: true,
+      selectionZoom: 15,
+      animatedZoom: true
+    }
+  };
+
+  addressComponents = {
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: ''
+  };
+
+  builtAddressLocation: LocationObject | null = null;
+  addressGeocodingStatus: { type: 'success' | 'error'; message: string } | null = null;
+  isGeocodingAddress: boolean = false;
+  searchLocation: LocationObject | null = null;
+  // Sample addresses for different countries
+  sampleAddresses = {
+    us: {
+      addressLine1: '123 Main Street',
+      addressLine2: 'Apt 4B',
+      city: 'New York',
+      state: 'NY',
+      postalCode: '10001',
+      country: 'United States'
+    },
+    uk: {
+      addressLine1: '10 Downing Street',
+      addressLine2: 'Westminster',
+      city: 'London',
+      state: '',
+      postalCode: 'SW1A 2AA',
+      country: 'United Kingdom'
+    },
+    ca: {
+      addressLine1: '24 Sussex Drive',
+      addressLine2: '',
+      city: 'Ottawa',
+      state: 'ON',
+      postalCode: 'K1M 1M4',
+      country: 'Canada'
+    },
+    de: {
+      addressLine1: 'Unter den Linden 77',
+      addressLine2: '',
+      city: 'Berlin',
+      state: '',
+      postalCode: '10117',
+      country: 'Germany'
+    },
+    jp: {
+      addressLine1: '1-1 Chiyoda',
+      addressLine2: '',
+      city: 'Tokyo',
+      state: '',
+      postalCode: '100-8111',
+      country: 'Japan'
+    },
+    au: {
+      addressLine1: '1 Macquarie Street',
+      addressLine2: '',
+      city: 'Sydney',
+      state: 'NSW',
+      postalCode: '2000',
+      country: 'Australia'
+    }
+  };
+
 
   addRandomPin() {
     const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
@@ -231,25 +333,40 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
   setPreSelectedLocation(locationName: string) {
     const demoLocation = this.demoLocations.find(loc => loc.name === locationName);
     if (demoLocation) {
-      this.preSelectedLocations = [demoLocation.location];
+      // Use the new searchForLocation method instead of preSelectedLocations
+      this.mapComponent.searchForLocation(demoLocation.location);
     }
   }
 
   setMultiplePreSelectedLocations() {
-    // Select first 3 locations for multi-select demo
-    this.preSelectedLocations = this.demoLocations.slice(0, 3).map(loc => loc.location);
+    // Enable multi-select first
+    if (!this.isMultiSelectEnabled()) {
+      this.toggleMultiSelect();
+    }
+
+    // Search for multiple locations - they will be added as selections
+    this.demoLocations.slice(0, 3).forEach((loc, index) => {
+      // Add a small delay between searches to ensure proper processing
+      setTimeout(() => {
+        this.mapComponent.searchForLocation(loc.location);
+      }, index * 100);
+    });
   }
 
   clearPreSelectedLocations() {
-    this.preSelectedLocations = [];
+    // Clear selections instead of preSelectedLocations
+    this.clearSelections();
   }
 
   getPreSelectedLocationNames(): string {
-    return this.preSelectedLocations.map((loc, i) => {
-      const demoLocation = this.demoLocations.find(demo =>
-        demo.location.latitude === loc.latitude && demo.location.longitude === loc.longitude
+    // Now we get names from actual selections instead of preSelectedLocations
+    return this.selectedLocations.map((sel, i) => {
+      // Try to find matching demo location by coordinates
+      const matchingDemo = this.demoLocations.find(demo =>
+        Math.abs(demo.location.latitude! - sel.coordinates.latitude) < 0.001 &&
+        Math.abs(demo.location.longitude! - sel.coordinates.longitude) < 0.001
       );
-      return demoLocation?.name || `Location ${i+1}`;
+      return matchingDemo?.name || `Selection ${i+1}`;
     }).join(', ');
   }
 
@@ -445,8 +562,10 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
     if (this.pins.length > 0) {
       // Move the first pin to London
       const londonLocation: LocationObject = {
-        latitude: 51.5074,
-        longitude: -0.1278
+        // latitude: 51.5074,
+        // longitude: -0.1278
+        country: 'United Kingdom',
+        city: 'London'
       };
 
       this.mapComponent?.updatePinLocation(0, londonLocation);
@@ -823,5 +942,320 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
         : location.address || 'Unknown location';
       return `${index + 1}. ${event.deletedPin.title || 'Untitled'} (${coords}) - ${event.reason}`;
     }).join('\n');
+  }
+
+  // Address Building Methods
+
+  /**
+   * Get the built address string from components
+   */
+  getBuiltAddress(): string {
+    const parts: string[] = [];
+
+    if (this.addressComponents.addressLine1) {
+      parts.push(this.addressComponents.addressLine1);
+    }
+
+    if (this.addressComponents.addressLine2) {
+      parts.push(this.addressComponents.addressLine2);
+    }
+
+    // Build city, state, postal code line
+    const cityStateLine: string[] = [];
+    if (this.addressComponents.city) {
+      cityStateLine.push(this.addressComponents.city);
+    }
+    if (this.addressComponents.state) {
+      cityStateLine.push(this.addressComponents.state);
+    }
+    if (this.addressComponents.postalCode) {
+      cityStateLine.push(this.addressComponents.postalCode);
+    }
+
+    if (cityStateLine.length > 0) {
+      parts.push(cityStateLine.join(', '));
+    }
+
+    if (this.addressComponents.country) {
+      parts.push(this.addressComponents.country);
+    }
+
+    return parts.join(', ');
+  }
+
+  /**
+   * Handle address component changes
+   */
+  onAddressComponentChange(): void {
+    // Clear previous geocoding results when address changes
+    this.addressGeocodingStatus = null;
+    this.builtAddressLocation = null;
+  }
+
+  /**
+   * Geocode the built address and add it to pre-selected locations for automatic library handling
+   */
+  async geocodeBuiltAddress(): Promise<void> {
+    const addressString = this.getBuiltAddress();
+    if (!addressString) {
+      this.addressGeocodingStatus = {
+        type: 'error',
+        message: '❌ Please fill in at least some address fields before geocoding.'
+      };
+      return;
+    }
+
+    this.isGeocodingAddress = true;
+    this.addressGeocodingStatus = null;
+
+    try {
+      // Create a LocationObject with address information for the library to handle
+      const addressLocation: LocationObject = {
+        // Let the library handle geocoding by providing address components
+        address: this.addressComponents.addressLine1,
+        addressLine2:this.addressComponents.addressLine2,
+        city: this.addressComponents.city,
+        state: this.addressComponents.state,
+        zipCode: this.addressComponents.postalCode,
+        country: this.addressComponents.country
+      };
+
+      // Try to geocode for immediate feedback, but let the library handle the actual selection
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=3&q=${encodeURIComponent(addressString)}`
+      );
+
+      if (!response.ok) {
+        // If geocoding fails, still search for address with address info for library fallback
+        this.searchForAddressLocation(addressLocation);
+        throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const result = data[0];
+
+        const lat = parseFloat(result.lat);
+        const lon = parseFloat(result.lon);
+
+        if (isNaN(lat) || isNaN(lon)) {        // Drop addressLine1, keep addressLine2
+        this.searchForAddressLocation(addressLocation);
+          throw new Error('Invalid coordinates returned from geocoding service');
+        }
+
+        // Add coordinates to the location object
+        addressLocation.latitude = lat;
+        addressLocation.longitude = lon;
+
+        this.builtAddressLocation = {
+          latitude: lat,
+          longitude: lon
+        };
+
+        // Add to preSelectedLocations - the library will handle the rest
+        this.searchForAddressLocation(addressLocation);
+
+        this.addressGeocodingStatus = {
+          type: 'success',
+          message: `✅ Address successfully geocoded and selected on map! Found: ${result.display_name || 'Location found'}`
+        };
+
+      } else {
+        // No results found - still search with address components for library fallback
+        this.searchForAddressLocation(addressLocation);
+        this.builtAddressLocation = null;
+        this.addressGeocodingStatus = {
+          type: 'error',
+          message: `❌ No location found for "${addressString}". Added to selection with address components - the map library will attempt fallback geocoding strategies (zipcode → city → state → country).`
+        };
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      // Still create location object with address info for library fallback
+      const addressLocation: LocationObject = {
+        address: this.addressComponents.addressLine1,
+        addressLine2: this.addressComponents.addressLine2,
+        city: this.addressComponents.city,
+        state: this.addressComponents.state,
+        zipCode: this.addressComponents.postalCode,
+        country: this.addressComponents.country
+      };
+      this.searchForAddressLocation(addressLocation);
+
+      this.builtAddressLocation = null;
+      this.addressGeocodingStatus = {
+        type: 'error',
+        message: `❌ Geocoding failed: ${error instanceof Error ? error.message : 'Unknown error'}. Added to selection for library fallback processing.`
+      };
+    } finally {
+      this.isGeocodingAddress = false;
+    }
+  }
+
+  /**
+   * Search for address location using the new searchForLocation method
+   */
+  private searchForAddressLocation(locationObject: LocationObject): void {
+    // Use the main map component to search for the location - this will trigger selection events
+    this.mapComponent.searchForLocation(locationObject);
+    this.searchLocation=locationObject;
+    // Also add a visual pin to the address map for demo purposes (if coordinates are available)
+    if (locationObject.latitude && locationObject.longitude) {
+      const addressPin: PinObject = {
+        location: locationObject,
+        color: '#007bff',
+        title: 'Selected Address',
+        content: `<h3>📍 Selected Address</h3>
+                  <p><strong>Address:</strong> ${this.getBuiltAddress()}</p>
+                  <p><strong>Coordinates:</strong> ${locationObject.latitude.toFixed(6)}, ${locationObject.longitude.toFixed(6)}</p>
+                  <p><strong>Status:</strong> Auto-selected by library</p>`,
+        draggable: true
+      };
+
+      this.addressPins = [...this.addressPins, addressPin];
+
+      // Center the address map on the location
+      this.addressMapCenter = {
+        latitude: locationObject.latitude,
+        longitude: locationObject.longitude
+      };
+
+      this.addressMapOptions = {
+        ...this.addressMapOptions,
+        zoom: 15
+      };
+    }
+  }
+
+  /**
+   * Add an extra pin for the current built address (independent of selection system)
+   */
+  addBuiltAddressPin(): void {
+    if (!this.getBuiltAddress()) {
+      this.addressGeocodingStatus = {
+        type: 'error',
+        message: '❌ Please fill in address fields first.'
+      };
+      return;
+    }
+
+    // Create a location object with address components
+    const addressLocation: LocationObject = {
+      latitude: this.builtAddressLocation?.latitude,
+      longitude: this.builtAddressLocation?.longitude,
+      address: this.addressComponents.addressLine1,
+      city: this.addressComponents.city,
+      state: this.addressComponents.state,
+      zipCode: this.addressComponents.postalCode,
+      country: this.addressComponents.country
+    };
+
+    const addressPin: PinObject = {
+      location: addressLocation,
+      color: '#28a745', // Green color for manually added pins
+      title: 'Manual Address Pin',
+      content: `<h3>🏠 Manual Address Pin</h3>
+                <p><strong>Address:</strong> ${this.getBuiltAddress()}</p>
+                ${this.builtAddressLocation ? `<p><strong>Coordinates:</strong> ${this.builtAddressLocation.latitude?.toFixed(6)}, ${this.builtAddressLocation.longitude?.toFixed(6)}</p>` : '<p><strong>Status:</strong> Will be geocoded by library</p>'}
+                <p><strong>Added:</strong> Manually by user</p>`,
+      draggable: true
+    };
+
+    // Add to address map
+    this.addressPins = [...this.addressPins, addressPin];
+
+    // Center the address map if we have coordinates
+    if (this.builtAddressLocation) {
+      this.addressMapCenter = {
+        latitude: this.builtAddressLocation.latitude,
+        longitude: this.builtAddressLocation.longitude
+      };
+    }
+
+    this.addressGeocodingStatus = {
+      type: 'success',
+      message: `✅ Extra pin added for "${this.getBuiltAddress()}"`
+    };
+  }
+
+  /**
+   * Clear the address form
+   */
+  clearAddressForm(): void {
+    this.addressComponents = {
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: ''
+    };
+    this.builtAddressLocation = null;
+    this.addressGeocodingStatus = null;
+  }
+
+  /**
+   * Fill address form with sample data
+   */
+  fillSampleAddress(country: string = 'us'): void {
+    const sample = this.sampleAddresses[country as keyof typeof this.sampleAddresses];
+    if (sample) {
+      this.addressComponents = { ...sample };
+      this.onAddressComponentChange();
+    }
+  }
+
+  /**
+   * Clear all address pins from the address map
+   */
+  clearAddressPins(): void {
+    this.addressPins = [];
+  }
+
+  /**
+   * Get the latest address pin
+   */
+  getLatestAddressPin(): PinObject | undefined {
+    return this.addressPins[this.addressPins.length - 1];
+  }
+
+  /**
+   * Handle map click events on the address map
+   */
+  onAddressMapClick(event: MapClickEvent): void {
+    console.log('Address map clicked:', event);
+    // Optionally add click handling for address map
+  }
+
+  /**
+   * Handle location selection events on the address map
+   */
+  onAddressMapLocationSelected(event: SelectedLocation | MapClickEvent): void {
+    console.log('Address map location selected:', event);
+    // Optionally handle location selection on address map
+  }
+
+  /**
+   * Handle pin deletion events on the address map
+   */
+  onAddressMapPinDeleted(event: PinDeleteEvent): void {
+    console.log('Address map pin deleted:', event);
+    // Remove the deleted pin from the addressPins array
+    this.addressPins = this.addressPins.filter((_, index) => index !== event.pinIndex);
+  }
+
+  /**
+   * Event handler for address pin drag events
+   */
+  onAddressPinDragged(event: PinDragEvent): void {
+    console.log('Address pin dragged:', event);
+    // Update the address pin location directly
+    if (event.pinIndex >= 0 && event.pinIndex < this.addressPins.length) {
+      this.addressPins[event.pinIndex].location = {
+        latitude: event.newCoordinates.latitude,
+        longitude: event.newCoordinates.longitude
+      };
+    }
   }
 }
