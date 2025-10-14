@@ -204,7 +204,7 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
                 <td><code>EventEmitter&lt;SelectedLocation[]&gt;</code></td>
                 <td>
                   Fired when locations are selected or deselected. Triggered by:
-                  map clicks, search results, external search inputs, and programmatic 
+                  map clicks, search results, external search inputs, and programmatic
                   selection via searchForLocation() or searchLocation property.
                   <br><strong>Note:</strong> Not triggered by preSelectedLocations changes.
                 </td>
@@ -429,7 +429,7 @@ export class AppModule {{ '{' }} {{ '}' }}</code></pre>
           <li>Provides visual feedback</li>
         </ul>
         <p><strong>Recommended approach</strong> for programmatic selection when you want to trigger events.</p>
-        
+
         <div class="code-block">
           <pre><code>// Example usage
 this.mapComponent.searchForLocation({{ '{' }}
@@ -738,7 +738,7 @@ const zipcode = selection.addressInfo?.address?.postcode;</code></pre>
       console.log(`Location: ${{ '{' }}city{{ '}' }}, ${{ '{' }}country{{ '}' }}`);
     {{ '}' }});
   {{ '}' }}
-  
+
   // Example of programmatic selection that DOES trigger selectionChanged
   selectWashingtonDC() {{ '{' }}
     // This approach will trigger the selectionChanged event
@@ -763,7 +763,7 @@ const zipcode = selection.addressInfo?.address?.postcode;</code></pre>
 
     <section class="docs-section">
       <h2>Support</h2>
-      <p>For issues and questions, please visit our <a href="https://github.com/ngmahesh/ng-libraries/issues" target="_blank">GitHub Issues page</a>.</p>
+      <p>For issues and questions, please visit our <a href="https://github.com/maheshnvv/ngmahesh/issues" target="_blank">GitHub Issues page</a>.</p>
     </section>
   </main>
 </div>

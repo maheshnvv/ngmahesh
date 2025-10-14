@@ -24,8 +24,8 @@ Visit our [documentation site](https://maheshnvv.github.io/ngmahesh) to explore 
 
 ### Setup
 ```bash
-git clone https://github.com/ngmahesh/ng-libraries.git
-cd ng-libraries
+git clone https://github.com/maheshnvv/ngmahesh.git
+cd ngmahesh
 npm install
 
 # Install git hooks for commit message validation (recommended)
@@ -223,11 +223,11 @@ MIT License - see [LICENSE](LICENSE) file for details
 ## 🔗 Links
 
 - [NPM Organization](https://www.npmjs.com/~ngmahesh)
-- [GitHub Repository](https://github.com/ngmahesh/ng-libraries)
-- [Documentation Site](https://ngmahesh.github.io/ng-libraries)
-- [Issue Tracker](https://github.com/ngmahesh/ng-libraries/issues)
+- [GitHub Repository](https://github.com/maheshnvv/ngmahesh)
+- [Documentation Site](https://maheshnvv.github.io/ngmahesh)
+- [Issue Tracker](https://github.com/maheshnvv/ngmahesh/issues)
 
 ---
 
-**Maintained by**: [NgMahesh](https://github.com/ngmahesh)  
-**Last Updated**: July 2025
+**Maintained by**: [NgMahesh](https://github.com/maheshnvv)  
+**Last Updated**: August 2025

@@ -29,17 +29,17 @@ import { NgOsmSearchConnectionService } from '../services/ng-osm-search-connecti
 
 /**
  * NgOsmMapDirective - Core directive for OpenStreetMap integration with Leaflet
- * 
+ *
  * Key Features:
- * - Unified selection logic: All selection sources (user clicks, search, preSelectedLocations, 
+ * - Unified selection logic: All selection sources (user clicks, search, preSelectedLocations,
  *   external search, searchForLocation) use the same selection and pin creation logic
  * - Robust fallback geocoding ladder with comprehensive address component combinations
  * - Event-driven architecture with consistent visual feedback
- * 
+ *
  * Programmatic Selection Approaches:
  * - preSelectedLocations: Silent selection without selectionChanged events (for initial state)
  * - searchLocation property / searchForLocation() method: Full selection workflow with events
- * 
+ *
  * Events:
  * - selectionChanged: Triggered by user interaction and programmatic selection (except preSelectedLocations)
  * - All other events follow standard patterns
@@ -52,28 +52,28 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
 
   /** Array of pins to display on the map */
   @Input() pins: PinObject[] = [];
-  
+
   /** Location to center and zoom the map to */
   @Input() zoomInto?: LocationObject;
-  
+
   /** Areas to highlight on the map with custom styling */
   @Input() highlightAreas: HighlightArea[] = [];
-  
+
   /** Map configuration and behavior options */
   @Input() mapOptions: MapOptions = {};
-  
+
   /** Unique identifier for connecting external search inputs to this map instance */
   @Input() mapId?: string;
-  
-  /** 
+
+  /**
    * Locations to pre-select without triggering selectionChanged events.
    * Use this for initial map state or when you need to set selections programmatically
    * without triggering event handlers. For programmatic selection that should trigger
    * events, use the searchForLocation() method or searchLocation property instead.
    */
   @Input() preSelectedLocations: LocationObject[] = [];
-  
-  /** 
+
+  /**
    * Location to search for and select programmatically. Setting this property will
    * trigger the selection process including geocoding, pin creation, and selectionChanged
    * event emission. This is the recommended approach for programmatic selection when
@@ -83,23 +83,23 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
 
   /** Fired when the map is clicked */
   @Output() mapClick = new EventEmitter<MapClickEvent>();
-  
+
   /** Fired when a location is selected via click (deprecated - use selectionChanged instead) */
   @Output() locationSelected = new EventEmitter<MapClickEvent>();
-  
+
   /** Fired when a search produces results */
   @Output() searchResult = new EventEmitter<SearchResult>();
-  
+
   /** Fired when a pin is dragged to a new location */
   @Output() pinDragged = new EventEmitter<PinDragEvent>();
-  
+
   /** Fired when autocomplete search returns suggestions */
   @Output() autocompleteResults = new EventEmitter<AutocompleteSuggestion[]>();
-  
+
   /** Fired when a pin is deleted */
   @Output() pinDeleted = new EventEmitter<PinDeleteEvent>();
-  
-  /** 
+
+  /**
    * Fired when locations are selected or deselected on the map.
    * This includes selections from: map clicks, search results, external search inputs,
    * and programmatic selection via searchForLocation() method or searchLocation property.
@@ -1903,10 +1903,10 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
    * - Emit selectionChanged events
    * - Handle single/multi-select logic based on map options
    * - Provide visual feedback
-   * 
+   *
    * Use this method instead of preSelectedLocations when you want to trigger
    * the full selection workflow programmatically.
-   * 
+   *
    * @param locationObject The location to search for and select
    */
   searchForLocation(locationObject: LocationObject): void {
