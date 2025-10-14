@@ -110,8 +110,8 @@ export class MyComponent &#123; &#125;</code></pre>
             <h2 id="support">🆘 Support</h2>
             <p>Need help? Here are your options:</p>
             <ul class="support-list">
-              <li><strong>GitHub Issues:</strong> <a href="https://github.com/ngmahesh/ng-libraries/issues" target="_blank">Report bugs or request features</a></li>
-              <li><strong>Discussions:</strong> <a href="https://github.com/ngmahesh/ng-libraries/discussions" target="_blank">Community discussions</a></li>
+              <li><strong>GitHub Issues:</strong> <a href="https://github.com/maheshnvv/ngmahesh/issues" target="_blank">Report bugs or request features</a></li>
+              <li><strong>Discussions:</strong> <a href="https://github.com/maheshnvv/ngmahesh/discussions" target="_blank">Community discussions</a></li>
               <li><strong>Email:</strong> support&#64;ngmahesh.dev</li>
             </ul>
           </section>

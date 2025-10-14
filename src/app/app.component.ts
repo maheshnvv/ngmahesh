@@ -14,7 +14,7 @@ import { RouterOutlet, RouterModule } from '@angular/router';
         </h1>
         <div class="nav-links">
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Home</a>
-          <a href="https://github.com/ngmahesh/ng-libraries" target="_blank">GitHub</a>
+          <a href="https://github.com/maheshnvv/ngmahesh" target="_blank">GitHub</a>
         </div>
       </div>
     </nav>

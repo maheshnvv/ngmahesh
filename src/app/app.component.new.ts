@@ -157,7 +157,7 @@ interface LibraryInfo {
         <div class="container">
           <p>&copy; 2025 NgMahesh Libraries - Open Source Angular Libraries</p>
           <div class="footer-links">
-            <a href="https://github.com/ngmahesh/ng-libraries" target="_blank">GitHub</a>
+            <a href="https://github.com/maheshnvv/ngmahesh" target="_blank">GitHub</a>
             <a href="https://www.npmjs.com/~ngmahesh" target="_blank">NPM</a>
             <a href="mailto:contact@ngmahesh.dev">Contact</a>
           </div>

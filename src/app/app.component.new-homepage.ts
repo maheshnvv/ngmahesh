@@ -166,7 +166,7 @@ interface LibraryInfo {
             <div class="footer-section">
               <h4>Resources</h4>
               <ul>
-                <li><a href="https://github.com/ngmahesh/ng-libraries" target="_blank">GitHub</a></li>
+                <li><a href="https://github.com/maheshnvv/ngmahesh" target="_blank">GitHub</a></li>
                 <li><a href="https://www.npmjs.com/~ngmahesh" target="_blank">NPM Profile</a></li>
                 <li><a href="mailto:support@ngmahesh.dev">Support</a></li>
               </ul>
@@ -174,9 +174,8 @@ interface LibraryInfo {
             <div class="footer-section">
               <h4>Community</h4>
               <ul>
-                <li><a href="https://github.com/ngmahesh/ng-libraries/discussions" target="_blank">Discussions</a></li>
-                <li><a href="https://github.com/ngmahesh/ng-libraries/issues" target="_blank">Issues</a></li>
-                <li><a href="https://twitter.com/ngmahesh" target="_blank">Twitter</a></li>
+                <li><a href="https://github.com/maheshnvv/ngmahesh/discussions" target="_blank">Discussions</a></li>
+                <li><a href="https://github.com/maheshnvv/ngmahesh/issues" target="_blank">Issues</a></li>
               </ul>
             </div>
           </div>
