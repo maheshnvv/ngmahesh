@@ -431,6 +431,8 @@ export interface SelectionOptions {
   selectionZoom?: number;
   /** Use animated zoom transition (default: true) */
   animatedZoom?: boolean;
+  /** Allow dragging selection pins to reposition (default: true) */
+  allowDragToReposition?: boolean;
 }
 
 /**
