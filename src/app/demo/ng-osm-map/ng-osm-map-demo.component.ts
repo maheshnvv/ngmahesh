@@ -996,7 +996,21 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
    * Geocode the built address and add it to pre-selected locations for automatic library handling
    */
   async geocodeBuiltAddress(): Promise<void> {
-     const addressLocation: LocationObject = {
+    const addressString = this.getBuiltAddress();
+    if (!addressString) {
+      this.addressGeocodingStatus = {
+        type: 'error',
+        message: '❌ Please fill in at least some address fields before geocoding.'
+      };
+      return;
+    }
+
+    this.isGeocodingAddress = true;
+    this.addressGeocodingStatus = null;
+
+    try {
+      // Create a LocationObject with address information for the library to handle
+      const addressLocation: LocationObject = {
         // Let the library handle geocoding by providing address components
         address: this.addressComponents.addressLine1,
         addressLine2:this.addressComponents.addressLine2,
@@ -1005,7 +1019,78 @@ export class NgOsmMapDemoComponent implements AfterViewInit {
         zipCode: this.addressComponents.postalCode,
         country: this.addressComponents.country
       };
-      this.searchLocation=addressLocation
+
+      // Try to geocode for immediate feedback, but let the library handle the actual selection
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=3&q=${encodeURIComponent(addressString)}`
+      );
+
+      if (!response.ok) {
+        // If geocoding fails, still search for address with address info for library fallback
+        this.searchForAddressLocation(addressLocation);
+        throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const result = data[0];
+
+        const lat = parseFloat(result.lat);
+        const lon = parseFloat(result.lon);
+
+        if (isNaN(lat) || isNaN(lon)) {        // Drop addressLine1, keep addressLine2
+        this.searchForAddressLocation(addressLocation);
+          throw new Error('Invalid coordinates returned from geocoding service');
+        }
+
+        // Add coordinates to the location object
+        addressLocation.latitude = lat;
+        addressLocation.longitude = lon;
+
+        this.builtAddressLocation = {
+          latitude: lat,
+          longitude: lon
+        };
+
+        // Add to preSelectedLocations - the library will handle the rest
+        this.searchForAddressLocation(addressLocation);
+
+        this.addressGeocodingStatus = {
+          type: 'success',
+          message: `✅ Address successfully geocoded and selected on map! Found: ${result.display_name || 'Location found'}`
+        };
+
+      } else {
+        // No results found - still search with address components for library fallback
+        this.searchForAddressLocation(addressLocation);
+        this.builtAddressLocation = null;
+        this.addressGeocodingStatus = {
+          type: 'error',
+          message: `❌ No location found for "${addressString}". Added to selection with address components - the map library will attempt fallback geocoding strategies (zipcode → city → state → country).`
+        };
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      // Still create location object with address info for library fallback
+      const addressLocation: LocationObject = {
+        address: this.addressComponents.addressLine1,
+        addressLine2: this.addressComponents.addressLine2,
+        city: this.addressComponents.city,
+        state: this.addressComponents.state,
+        zipCode: this.addressComponents.postalCode,
+        country: this.addressComponents.country
+      };
+      this.searchForAddressLocation(addressLocation);
+
+      this.builtAddressLocation = null;
+      this.addressGeocodingStatus = {
+        type: 'error',
+        message: `❌ Geocoding failed: ${error instanceof Error ? error.message : 'Unknown error'}. Added to selection for library fallback processing.`
+      };
+    } finally {
+      this.isGeocodingAddress = false;
+    }
   }
 
   /**

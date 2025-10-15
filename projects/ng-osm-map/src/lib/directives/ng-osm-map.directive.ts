@@ -258,7 +258,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
         zoomControl: options.readonly ? false : options.zoomControl,
         scrollWheelZoom: options.readonly ? (options.scrollWheelZoomInReadonly === true) : options.scrollWheelZoom,
         doubleClickZoom: options.readonly ? false : options.doubleClickZoom,
-        dragging: options.readonly ? (options.scrollWheelZoomInReadonly === true) : true,
+        dragging: options.readonly ? false : true,
         touchZoom: options.readonly ? false : true,
         boxZoom: options.readonly ? false : true,
         keyboard: options.readonly ? false : true,
@@ -1804,7 +1804,7 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
         color: '#007bff',
         title: 'Selected Location',
         content: clickEvent.addressInfo?.display_name ? `<h3>📍 Selected</h3><p>${clickEvent.addressInfo.display_name}</p>` : '<h3>📍 Selected Location</h3>',
-        draggable: this.mapOptions.readonly ? false : (selectionOptions.allowDragToReposition || false),
+        draggable: true,
         data: { selectionId: selectedLocation.id }
       };
 
