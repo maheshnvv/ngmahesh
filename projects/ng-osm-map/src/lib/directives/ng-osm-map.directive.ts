@@ -258,7 +258,7 @@ export class NgOsmMapDirective implements OnInit, OnDestroy, OnChanges {
         zoomControl: options.readonly ? false : options.zoomControl,
         scrollWheelZoom: options.readonly ? (options.scrollWheelZoomInReadonly === true) : options.scrollWheelZoom,
         doubleClickZoom: options.readonly ? false : options.doubleClickZoom,
-        dragging: options.readonly ? false : true,
+        dragging: options.readonly ? (options.scrollWheelZoomInReadonly === true) : true,
         touchZoom: options.readonly ? false : true,
         boxZoom: options.readonly ? false : true,
         keyboard: options.readonly ? false : true,
