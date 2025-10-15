@@ -1804,7 +1804,7 @@ private addTemplatePopup(marker: L.Marker, pin: PinObject, pinIndex: number): vo
         color: '#007bff',
         title: 'Selected Location',
         content: clickEvent.addressInfo?.display_name ? `<h3>📍 Selected</h3><p>${clickEvent.addressInfo.display_name}</p>` : '<h3>📍 Selected Location</h3>',
-        draggable: true,
+        draggable: this.mapOptions.readonly ? false : (selectionOptions.allowDragToReposition || false),
         data: { selectionId: selectedLocation.id }
       };
 
