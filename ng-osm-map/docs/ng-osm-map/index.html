@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>NgOsmMap Documentation</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; margin: 0; padding: 2rem; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    h1, h2, h3 { color: #333; }
+    code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
+    pre { background: #f4f4f4; padding: 1rem; border-radius: 5px; overflow-x: auto; }
+    .back-link { color: #007bff; text-decoration: none; }
+    .feature-list { list-style: none; padding: 0; }
+    .feature-list li { padding: 0.5rem 0; }
+    .feature-list li::before { content: "✓"; color: #28a745; font-weight: bold; margin-right: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <p><a href="../../index.html" class="back-link">← Back to Homepage</a></p>
+
+    <h1>🗺️ NgOsmMap Documentation</h1>
+
+    <h2>Overview</h2>
+    <p>NgOsmMap is a comprehensive Angular library for OpenStreetMap integration using Leaflet. It provides a complete solution for interactive maps with advanced features.</p>
+
+    <p><strong>Note:</strong> This library provides both a standalone component (<code>NgOsmMapComponent</code>) and a directive (<code>NgOsmMapDirective</code>) approach. Both are compatible with Angular 18+ standalone applications.</p>
+
+    <h2>Installation</h2>
+    <p><strong>Requirements:</strong> Angular 18.0+ is required for this library.</p>
+
+    <h3>Install the package and dependencies:</h3>
+    <pre><code>npm install @ngmahesh/ng-osm-map leaflet
+npm install --save-dev @types/leaflet</code></pre>
+
+    <h2>Quick Start</h2>
+    <pre><code>import { NgOsmMapComponent, NgOsmMapDirective } from '@ngmahesh/ng-osm-map';
+
+// For standalone components:
+@Component({
+  standalone: true,
+  imports: [NgOsmMapComponent, NgOsmMapDirective],
+  ...
+})
+export class AppComponent { }</code></pre>
+
+    <h3>Basic Usage - Component</h3>
+    <pre><code>&lt;ng-osm-map
+  [pins]="pins"
+  [height]="400"
+  [width]="'100%'"
+  (mapClick)="onMapClick($event)"
+  (searchResult)="onLocationSelected($event)"&gt;
+&lt;/ng-osm-map&gt;</code></pre>
+
+    <h3>Basic Usage - Directive</h3>
+    <pre><code>&lt;div
+  ngOsmMap
+  [pins]="pins"
+  [mapOptions]="mapOptions"
+  (mapClick)="onMapClick($event)"
+  (searchResult)="onLocationSelected($event)"
+  style="height: 400px; width: 100%;"&gt;
+&lt;/div&gt;</code></pre>
+
+    <h2>Features</h2>
+    <ul class="feature-list">
+      <li>Interactive map with Leaflet integration</li>
+      <li>Draggable pins with custom templates</li>
+      <li>Geocoding and reverse geocoding</li>
+      <li>Smart search with autocomplete</li>
+      <li>Area highlighting capabilities</li>
+      <li>Multiple tile layer support</li>
+      <li>Advanced selection system</li>
+      <li>Template-based popups</li>
+      <li>Event-driven architecture</li>
+      <li>TypeScript support</li>
+      <li>Angular 18+ compatible</li>
+      <li>Tree-shakable</li>
+    </ul>
+
+    <h2>API Reference</h2>
+
+    <h3>NgOsmMapComponent</h3>
+    <p>Standalone component for easy integration. Use when you want a self-contained map component.</p>
+    <h4>Inputs</h4>
+    <ul>
+      <li><code>pins: PinObject[]</code> - Array of pins to display</li>
+      <li><code>zoomInto: LocationObject</code> - Location to center and zoom to</li>
+      <li><code>highlightAreas: HighlightArea[]</code> - Areas to highlight</li>
+      <li><code>mapOptions: MapOptions</code> - Map configuration options</li>
+      <li><code>height: number</code> - Map height in pixels</li>
+      <li><code>width: string | number</code> - Map width</li>
+    </ul>
+
+    <h3>NgOsmMapDirective</h3>
+    <p>Directive approach for more flexibility. Apply to any div element to turn it into a map.</p>
+    <h4>Inputs</h4>
+    <ul>
+      <li><code>pins: PinObject[]</code> - Array of pins to display</li>
+      <li><code>mapOptions: MapOptions</code> - Map configuration options</li>
+    </ul>
+
+    <h4>Common Outputs (Both Component & Directive)</h4>
+    <ul>
+      <li><code>mapClick: EventEmitter&lt;MapClickEvent&gt;</code> - Map click events</li>
+      <li><code>searchResult: EventEmitter&lt;SearchResult&gt;</code> - Search result events</li>
+      <li><code>pinDragged: EventEmitter&lt;PinDragEvent&gt;</code> - Pin drag events</li>
+      <li><code>autocompleteResults: EventEmitter&lt;AutocompleteSuggestion[]&gt;</code> - Autocomplete events</li>
+      <li><code>pinDeleted: EventEmitter&lt;PinDeleteEvent&gt;</code> - Pin deletion events</li>
+      <li><code>selectionChanged: EventEmitter&lt;SelectedLocation[]&gt;</code> - Selection change events</li>
+    </ul>
+
+    <h2>Interfaces</h2>
+
+    <h3>PinObject</h3>
+    <pre><code>interface PinObject {
+  title?: string;
+  coordinates?: Coordinates;
+  address?: string;
+  color?: string;
+  htmlContent?: string;
+  icon?: string;
+  draggable?: boolean;
+  template?: TemplateRef&lt;PinPopupContext&gt;;
+  data?: any;
+}</code></pre>
+
+    <h3>LocationObject</h3>
+    <pre><code>interface LocationObject {
+  latitude: number;
+  longitude: number;
+  addressInfo?: AddressInfo;
+}</code></pre>
+
+    <h2>Examples</h2>
+
+    <h3>Basic Map with Pins</h3>
+    <pre><code>export class MyComponent {
+  pins: PinObject[] = [
+    {
+      title: 'New York',
+      coordinates: { latitude: 40.7128, longitude: -74.0060 },
+      color: 'red',
+      draggable: true
+    },
+    {
+      title: 'London',
+      address: 'London, UK',
+      color: 'blue'
+    }
+  ];
+
+  onMapClick(event: MapClickEvent) {
+    console.log('Map clicked:', event.location);
+  }
+}</code></pre>
+
+    <h3>Template-based Popups</h3>
+    <pre><code>&lt;ng-template #customPopup let-location let-pin="pin" let-deletePin="deletePin"&gt;
+  &lt;div&gt;
+    &lt;h3&gt;{{ pin.title }}&lt;/h3&gt;
+    &lt;p&gt;Lat: {{ location.latitude }}, Lng: {{ location.longitude }}&lt;/p&gt;
+    &lt;button (click)="deletePin()"&gt;Delete Pin&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/ng-template&gt;</code></pre>
+
+    <h2>Advanced Features</h2>
+
+    <h3>Geocoding</h3>
+    <p>The library includes built-in geocoding services using OpenStreetMap Nominatim API.</p>
+
+    <h3>Search and Autocomplete</h3>
+    <p>Integrated search functionality with autocomplete suggestions.</p>
+
+    <h3>Selection System</h3>
+    <p>Advanced selection system supporting both single and multi-select modes.</p>
+
+    <h3>Multiple Tile Layers</h3>
+    <p>Support for various map tile providers including OpenStreetMap, satellite imagery, and custom themes.</p>
+
+    <h2>License</h2>
+    <p>MIT License</p>
+
+    <h2>Support</h2>
+    <p>For issues and questions, please visit our <a href="https://github.com/maheshnvv/ngmahesh/issues">GitHub Issues page</a>.</p>
+  </div>
+</body>
+</html>
